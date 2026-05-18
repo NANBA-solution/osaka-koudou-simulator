@@ -287,6 +287,9 @@
             <p class="text-[9px] text-slate-600 tracking-wider uppercase">コース選択</p>
             <div class="flex gap-1 flex-wrap" id="attackCourseTabs" role="tablist" aria-label="タイムアタックコース"></div>
             <button type="button" id="attackDirToggle" class="course-dir-btn w-full" title="上り／下り切替">↑ 上り</button>
+            <p class="text-[9px] text-amber-500/95 leading-relaxed border border-amber-900/40 bg-amber-950/20 rounded px-2 py-1.5" role="note">
+              ※ 計測するコースを上で指定してから GPS を ON にしてください。選択中コースのゲートだけが有効で、別コースの計測地点を通っても記録されません。
+            </p>
             <p id="attackGateNote" class="text-[10px] text-slate-500 leading-relaxed">計測地点（ゲート）のラインを通過するとタイムを計測します</p>
           </div>
           <p id="attackStatus" class="text-xs font-bold tracking-wide text-slate-500">計測地点を通過するとスタート／ゴールを判定します</p>
@@ -296,7 +299,7 @@
             <p id="attackTime" class="attack-timer text-4xl font-black text-red-400 glow-red">00:00.000</p>
           </div>
           <div id="attackGpsLog" class="text-[10px] text-slate-500 font-mono bg-black/40 border border-motec-border rounded p-2 leading-relaxed">
-            計測は地点のライン「通過」でのみ行います（近づくだけでは計測されません）。信貴山・猿山は最初に通過した地点で上り／下りを自動判定します。
+            計測は地点のライン「通過」でのみ行います（近づくだけでは計測されません）。コースはタブで指定したものだけが対象です。信貴山・猿山は最初に通過した地点で上り／下りを自動判定します。
           </div>
           <div>
             <div class="flex items-center justify-between gap-2 mb-1 border-b border-motec-border pb-1">
