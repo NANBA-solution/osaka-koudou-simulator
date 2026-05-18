@@ -86,6 +86,34 @@
     .course-map-meta strong { color: #fafafa; }
     #courseCanvas { background: #fff !important; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    .attack-panel { background: linear-gradient(180deg, #0d1219 0%, #0a0e14 100%); }
+    .attack-timer { font-variant-numeric: tabular-nums; letter-spacing: 0.08em; }
+    #attackGpsLog { max-height: 4.5rem; overflow-y: auto; }
+    .gps-power {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      padding: 0.2rem 0.55rem; font-size: 10px; font-weight: 800;
+      letter-spacing: 0.12em; border-radius: 0.25rem; border: 1px solid;
+    }
+    .gps-power::before {
+      content: ''; width: 0.4rem; height: 0.4rem; border-radius: 9999px; background: currentColor;
+    }
+    .gps-power-off { color: #64748b; border-color: #334155; background: #0a0e14; }
+    .gps-power-on { color: #34d399; border-color: #059669; background: rgba(5,150,105,.12); }
+    #attackLogList { max-height: 10rem; overflow-y: auto; }
+    .attack-record-row { display: grid; grid-template-columns: 1fr auto; gap: 0.35rem 0.5rem; align-items: center; }
+    .attack-record-del {
+      padding: 0.1rem 0.35rem; font-size: 9px; line-height: 1.2;
+      border-radius: 0.2rem; border: 1px solid #334155; color: #64748b;
+      background: transparent; cursor: pointer;
+    }
+    .attack-record-del:hover { border-color: #f87171; color: #fca5a5; }
+    .parts-tab {
+      flex: 1; padding: 0.4rem 0.5rem; font-size: 10px; font-weight: 600;
+      border-radius: 0.25rem 0.25rem 0 0; border: 1px solid #1e2a38; border-bottom: none;
+      background: #0a0e14; color: #64748b;
+    }
+    .parts-tab.active { border-color: #00e5ff; color: #00e5ff; background: #111820; }
+    .parts-tab-panel.hidden { display: none; }
   </style>
 </head>
 <body class="text-slate-300 min-h-screen antialiased">
@@ -110,6 +138,42 @@
     <div class="grid lg:grid-cols-12 gap-4">
       <!-- Settings -->
       <aside class="lg:col-span-3 space-y-3">
+        <section class="attack-panel border border-red-900/40 rounded-lg p-4 space-y-3" aria-labelledby="attackHeading">
+          <div class="flex items-start justify-between gap-2 border-b border-motec-border pb-2">
+            <div>
+              <p class="text-[9px] text-slate-600 tracking-[.2em] uppercase">Vector Crossing Lap Timer</p>
+              <h2 id="attackHeading" class="text-sm font-bold text-red-400 tracking-wide">🏁 GPSタイムアタック</h2>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <span id="attackGpsPower" class="gps-power gps-power-off" aria-live="polite">GPS OFF</span>
+              <button type="button" id="attackToggle" class="px-3 py-1.5 text-[11px] font-bold rounded border border-red-800 text-red-300 bg-red-950/40 hover:bg-red-950/70 transition-colors" aria-label="GPSをオンにする">ON</button>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <p class="text-[9px] text-slate-600 tracking-wider uppercase">コース選択</p>
+            <div class="flex gap-1 flex-wrap" id="attackCourseTabs" role="tablist" aria-label="タイムアタックコース"></div>
+            <button type="button" id="attackDirToggle" class="course-dir-btn w-full" title="上り／下り切替">↑ 上り</button>
+            <p id="attackGateNote" class="text-[10px] text-slate-500 leading-relaxed">計測地点（ゲート）のラインを通過するとタイムを計測します</p>
+          </div>
+          <p id="attackStatus" class="text-xs font-bold tracking-wide text-slate-500">計測地点を通過するとスタート／ゴールを判定します</p>
+          <p id="attackCoords" class="text-[10px] text-slate-600 font-mono tabular-nums">—</p>
+          <div class="bg-black/50 border border-motec-border rounded p-3 text-center">
+            <p class="text-[9px] text-slate-600 tracking-widest uppercase mb-1">Current Lap</p>
+            <p id="attackTime" class="attack-timer text-4xl font-black text-red-400 glow-red">00:00.000</p>
+          </div>
+          <div id="attackGpsLog" class="text-[10px] text-slate-500 font-mono bg-black/40 border border-motec-border rounded p-2 leading-relaxed">
+            計測は地点のライン「通過」でのみ行います（近づくだけでは計測されません）。信貴山・猿山は最初に通過した地点で上り／下りを自動判定します。
+          </div>
+          <div>
+            <div class="flex items-center justify-between gap-2 mb-1 border-b border-motec-border pb-1">
+              <p class="text-[9px] text-slate-600 tracking-wider uppercase">タイム記録 <span id="attackLogCount" class="text-slate-500 normal-case">(0)</span></p>
+              <button type="button" id="attackLogClearAll" class="text-[9px] text-slate-600 hover:text-red-400 border border-motec-border px-1.5 py-0.5 rounded" title="全記録を削除">全削除</button>
+            </div>
+            <p class="text-[9px] text-slate-600 mb-1">端末に保存 · ゴール地点通過で自動追加</p>
+            <div id="attackLogList" class="text-[11px] space-y-1 font-mono"></div>
+          </div>
+        </section>
+
         <section class="bg-motec-panel border border-motec-border rounded-lg p-4 space-y-3">
           <h2 class="text-xs text-motec-accent uppercase tracking-widest border-b border-motec-border pb-2">Vehicle Base</h2>
           <label class="block text-[10px] text-slate-500">車種プリセット</label>
@@ -138,8 +202,25 @@
         </section>
 
         <section class="bg-motec-panel border border-motec-border rounded-lg p-4 space-y-2 max-h-[min(70vh,520px)] overflow-y-auto">
-          <h2 class="text-xs text-motec-accent uppercase tracking-widest border-b border-motec-border pb-2 sticky top-0 bg-motec-panel z-10">Parts</h2>
-          <div id="partsContainer" class="space-y-1.5"></div>
+          <div class="flex gap-1 sticky top-0 bg-motec-panel z-10 pb-2 -mx-1 px-1" role="tablist" aria-label="パーツパネル">
+            <button type="button" class="parts-tab active" data-parts-tab="parts">パーツ</button>
+            <button type="button" class="parts-tab" data-parts-tab="reset">リセット</button>
+          </div>
+          <div id="partsTabParts" class="parts-tab-panel space-y-1.5">
+            <div id="partsContainer" class="space-y-1.5"></div>
+          </div>
+          <div id="partsTabReset" class="parts-tab-panel hidden space-y-3 pt-1">
+            <p class="text-[10px] text-slate-500 leading-relaxed">設定を初期状態に戻します。タイム記録はGPS枠の「全削除」で消せます。</p>
+            <button type="button" id="resetPartsBtn" class="w-full py-2 text-[11px] font-bold rounded border border-motec-border text-slate-300 hover:border-motec-accent hover:text-motec-accent">
+              パーツを初期化
+            </button>
+            <button type="button" id="resetTuneBtn" class="w-full py-2 text-[11px] font-bold rounded border border-motec-border text-slate-300 hover:border-motec-accent hover:text-motec-accent">
+              チューニングを初期化
+            </button>
+            <button type="button" id="resetAllBtn" class="w-full py-2 text-[11px] font-bold rounded border border-red-900/60 text-red-300 bg-red-950/30 hover:bg-red-950/50">
+              すべて初期化（保存データ含む）
+            </button>
+          </div>
         </section>
 
       </aside>
@@ -233,6 +314,9 @@
   </div>
 
   <script src="scripts/red-path-browser.js"></script>
+  <script src="scripts/road-gate.js"></script>
+  <script src="scripts/attack-gates.js"></script>
+  <script src="scripts/time-attack.js"></script>
   <script>
   (function () {
     'use strict';
@@ -1906,50 +1990,84 @@
       return COURSES[key];
     }
 
-    /** 信貴山・猿山：上り／下りの2走行パターンを生成 */
-    function registerUpDownVariants(baseKey, labels) {
+    /** 信貴山・猿山：上り／下りの2走行パターンを生成（swapUd=true で走行方向を反転） */
+    function registerUpDownVariants(baseKey, labels, swapUd = false) {
       const base = pickBaseCourse(baseKey);
       if (!base?.path?.length) return;
       const upKey = `${baseKey}_up`;
       const downKey = `${baseKey}_down`;
       const upPath = base.path.slice();
+      const downPath = reversePath(base.path);
 
       const { physicsProfile: _p0, ...baseUp } = base;
+      const { physicsProfile: _p1, ...baseDown } = base;
+
+      const upDef = swapUd
+        ? {
+            path: downPath,
+            name: labels.up.name,
+            desc: labels.down.desc,
+            startLabel: base.endLabel,
+            endLabel: base.startLabel,
+            landmarks: cloneLandmarksForPath(base.landmarks, downPath),
+            gradeSign: -1,
+            logic: base.logic === 'lateral' ? 'lateral' : 'mixed',
+            peakCeilingKmh: labels.down.peakCeilingKmh ?? Math.round((base.peakCeilingKmh ?? 125) * 1.12)
+          }
+        : {
+            path: upPath,
+            name: labels.up.name,
+            desc: labels.up.desc,
+            startLabel: base.startLabel,
+            endLabel: base.endLabel,
+            landmarks: cloneLandmarksForPath(base.landmarks, upPath),
+            gradeSign: 1,
+            logic: base.logic,
+            peakCeilingKmh: labels.up.peakCeilingKmh ?? base.peakCeilingKmh ?? 125
+          };
+
+      const downDef = swapUd
+        ? {
+            path: upPath,
+            name: labels.down.name,
+            desc: labels.up.desc,
+            startLabel: base.startLabel,
+            endLabel: base.endLabel,
+            landmarks: cloneLandmarksForPath(base.landmarks, upPath),
+            gradeSign: 1,
+            logic: base.logic,
+            peakCeilingKmh: labels.up.peakCeilingKmh ?? base.peakCeilingKmh ?? 125
+          }
+        : {
+            path: downPath,
+            name: labels.down.name,
+            desc: labels.down.desc,
+            startLabel: base.endLabel,
+            endLabel: base.startLabel,
+            landmarks: cloneLandmarksForPath(base.landmarks, downPath),
+            gradeSign: -1,
+            logic: base.logic === 'lateral' ? 'lateral' : 'mixed',
+            peakCeilingKmh: labels.down.peakCeilingKmh ?? Math.round((base.peakCeilingKmh ?? 125) * 1.12)
+          };
+
       COURSES[upKey] = {
         ...baseUp,
         refSource: base.refSource || baseKey,
-        name: labels.up.name,
-        desc: labels.up.desc,
-        startLabel: base.startLabel,
-        endLabel: base.endLabel,
-        path: upPath,
-        landmarks: cloneLandmarksForPath(base.landmarks, upPath),
-        gradeSign: 1,
         gradeFactor: base.gradeFactor,
-        logic: base.logic,
-        peakCeilingKmh: labels.up.peakCeilingKmh ?? base.peakCeilingKmh ?? 125,
+        terrain: base.terrain,
         useManualProfile: false,
-        usePrecisionSim: true
+        usePrecisionSim: true,
+        ...upDef
       };
 
-      const downPath = reversePath(base.path);
-      const { physicsProfile: _p1, ...baseDown } = base;
       COURSES[downKey] = {
         ...baseDown,
         refSource: base.refSource || baseKey,
-        name: labels.down.name,
-        desc: labels.down.desc,
-        startLabel: base.endLabel,
-        endLabel: base.startLabel,
-        path: downPath,
-        landmarks: cloneLandmarksForPath(base.landmarks, downPath),
-        gradeSign: -1,
         gradeFactor: base.gradeFactor,
-        logic: base.logic === 'lateral' ? 'lateral' : 'mixed',
         terrain: base.terrain,
-        peakCeilingKmh: labels.down.peakCeilingKmh ?? Math.round((base.peakCeilingKmh ?? 125) * 1.12),
         useManualProfile: false,
-        usePrecisionSim: true
+        usePrecisionSim: true,
+        ...downDef
       };
 
       delete COURSES[baseKey];
@@ -1985,13 +2103,13 @@
       prefixDown: 'SD',
       up: { name: '信貴山 上り', desc: '左下S→右上F · 上り 4.2km', peakCeilingKmh: 125 },
       down: { name: '信貴山 下り', desc: '右上S→左下F · 下り 4.2km', peakCeilingKmh: 140 }
-    });
+    }, true);
     registerUpDownVariants('saruyama', {
       prefixUp: 'YU',
       prefixDown: 'YD',
       up: { name: '猿山 上り', desc: '左上S→右下F · 上り 3.1km', peakCeilingKmh: 110 },
       down: { name: '猿山 下り', desc: '右下S→左上F · 下り 3.1km', peakCeilingKmh: 125 }
-    });
+    }, true);
     registerHannaDownVariant();
 
     Object.values(COURSES).forEach(buildSegmentsFromPath);
@@ -2115,6 +2233,8 @@
       results: null
     };
 
+    let timeAttack = null;
+
     const mapPan = { active: false, lastX: 0, lastY: 0 };
     const MAP_ZOOM_MAX = 5;
     const MAP_ZOOM_ABS_MIN = 0.35;
@@ -2128,6 +2248,18 @@
       { id: 'saruyama', label: '猿山', up: 'saruyama_up', down: 'saruyama_down' },
       { id: 'hanna', label: '阪奈', up: null, down: 'hanna_down', downOnly: true }
     ];
+
+    const DEFAULT_PARTS = {
+      tireKey: 'sport',
+      brakeKey: 'stock',
+      weightKey: 'normal',
+      suspKey: 'stock',
+      wheelKey: 'stock',
+      aeroKey: 'none',
+      diffKey: 'open',
+      intakeKey: 'stock',
+      coolKey: 'stock'
+    };
 
     // ─── DOM ───
     const $ = (id) => document.getElementById(id);
@@ -2171,7 +2303,14 @@
       mapZoomIn: $('mapZoomIn'),
       mapZoomOut: $('mapZoomOut'),
       mapZoomReset: $('mapZoomReset'),
-      mapZoomLabel: $('mapZoomLabel')
+      mapZoomLabel: $('mapZoomLabel'),
+      attackCourseTabs: $('attackCourseTabs'),
+      attackDirToggle: $('attackDirToggle'),
+      partsTabParts: $('partsTabParts'),
+      partsTabReset: $('partsTabReset'),
+      resetPartsBtn: $('resetPartsBtn'),
+      resetTuneBtn: $('resetTuneBtn'),
+      resetAllBtn: $('resetAllBtn')
     };
 
     function isPrimaryRefCourse(key, course) {
@@ -2286,6 +2425,84 @@
       renderCourseUI();
     }
 
+    function setPartsPanelTab(tab) {
+      document.querySelectorAll('.parts-tab').forEach((b) => {
+        b.classList.toggle('active', b.dataset.partsTab === tab);
+      });
+      els.partsTabParts?.classList.toggle('hidden', tab !== 'parts');
+      els.partsTabReset?.classList.toggle('hidden', tab !== 'reset');
+    }
+
+    function resetPartsToDefault() {
+      Object.assign(state, DEFAULT_PARTS);
+      renderPartsUI();
+      recalc();
+      saveLocal();
+      els.saveIndicator.textContent = 'PARTS RESET';
+    }
+
+    function resetTuneToDefault() {
+      state.massMode = 'preset';
+      state.customMassKg = 0;
+      state.powerScalePct = 100;
+      state.targetPowerPs = 0;
+      state.powerUserSet = false;
+      state.wet = false;
+      if (els.massMode) els.massMode.value = 'preset';
+      if (els.customMassKg) els.customMassKg.value = '';
+      if (els.powerSlider) els.powerSlider.value = 100;
+      if (els.targetPowerPs) els.targetPowerPs.value = '';
+      if (els.wetMode) els.wetMode.checked = false;
+      applyCarPreset(state.carKey, false);
+      updateTuneUi();
+      recalc();
+      saveLocal();
+      els.saveIndicator.textContent = 'TUNE RESET';
+    }
+
+    function resetAllSettings() {
+      if (!confirm('車種・パーツ・チューニング・保存データをすべて初期化しますか？')) return;
+      const keepCourseKey = state.courseKey;
+      const keepCourseGroup = state.courseGroup;
+      const keepCourseDir = state.courseDir;
+      Object.assign(state, {
+        carKey: 'gr86',
+        ...DEFAULT_PARTS,
+        massMode: 'preset',
+        customMassKg: 0,
+        powerUserSet: false,
+        powerScalePct: 100,
+        targetPowerPs: 0,
+        courseKey: keepCourseKey,
+        courseGroup: keepCourseGroup,
+        courseDir: keepCourseDir,
+        Ne: 7000,
+        wet: false,
+        mapView: 'course',
+        mapZoom: 1,
+        fitZoom: 1,
+        mapPanX: 0,
+        mapPanY: 0,
+        results: null
+      });
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem('osaka_kodo_attack_log_v1');
+        localStorage.removeItem('osaka_kodo_attack_log_v2');
+      } catch (_) {}
+      els.carPreset.value = state.carKey;
+      els.wetMode.checked = false;
+      renderPartsUI();
+      applyCarPreset(state.carKey, false);
+      updateTuneUi();
+      els.rpmSlider.value = state.Ne;
+      els.rpmVal.textContent = state.Ne;
+      timeAttack?.reloadLog?.();
+      fitMapToCourse();
+      recalc();
+      els.saveIndicator.textContent = 'ALL RESET';
+    }
+
     function renderPartsUI() {
       if (!els.partsContainer) return;
       els.partsContainer.innerHTML = PART_CATALOG.map((cat, i) => {
@@ -2305,29 +2522,81 @@
       }).join('');
     }
 
+    function renderDirToggle(btn, groupId, dir, opts = {}) {
+      if (!btn) return;
+      const testActive = opts.testActive;
+      if (testActive) {
+        btn.disabled = true;
+        btn.textContent = 'テストコース';
+        btn.classList.remove('active-up', 'active-down');
+        btn.title = 'テストゲートは往復1ライン';
+        return;
+      }
+      if (opts.autoDir) {
+        btn.disabled = true;
+        btn.textContent = '↔ 方向自動';
+        btn.classList.remove('active-up', 'active-down');
+        btn.title = '最初に跨ぐゲートで上り／下りを自動判定（GPS）';
+        return;
+      }
+      const g = COURSE_GROUPS.find((x) => x.id === groupId) || COURSE_GROUPS[0];
+      const isDown = dir === 'down';
+      btn.disabled = !!g.downOnly;
+      btn.textContent = isDown ? '↓ 下り' : '↑ 上り';
+      btn.classList.toggle('active-up', !isDown && !g.downOnly);
+      btn.classList.toggle('active-down', isDown);
+      btn.title = g.downOnly ? '阪奈は下りのみ' : 'タップで上り／下り切替';
+    }
+
+    function renderAttackCourseUI() {
+      const testActive = !!timeAttack?.isTestMode?.();
+      if (els.attackCourseTabs) {
+        const courseBtns = COURSE_GROUPS.map((g) => {
+          const active = !testActive && g.id === state.courseGroup;
+          const cls = active ? 'course-tab active' : 'course-tab';
+          return `<button type="button" class="${cls}" data-group="${g.id}" role="tab">${g.label}</button>`;
+        }).join('');
+        const testCls = testActive ? 'course-tab active' : 'course-tab';
+        const testBtn = `<button type="button" class="${testCls}" data-group="test" role="tab">テスト</button>`;
+        els.attackCourseTabs.innerHTML = courseBtns + testBtn;
+      }
+      renderDirToggle(els.attackDirToggle, state.courseGroup, state.courseDir, {
+        testActive,
+        autoDir: !!timeAttack?.isAutoDirCourse?.()
+      });
+    }
+
     function renderCourseUI() {
       syncCourseGroupState();
       if (els.courseGroupTabs) {
+        const testActive = !!timeAttack?.isTestMode?.();
         els.courseGroupTabs.innerHTML = COURSE_GROUPS.map((g) => {
-          const active = g.id === state.courseGroup ? ' course-tab active' : ' course-tab';
+          const active = !testActive && g.id === state.courseGroup ? ' course-tab active' : ' course-tab';
           return `<button type="button" class="${active.trim()}" data-group="${g.id}" role="tab">${g.label}</button>`;
         }).join('');
       }
-      const g = COURSE_GROUPS.find((x) => x.id === state.courseGroup) || COURSE_GROUPS[0];
-      const btn = els.courseDirToggle;
-      if (btn) {
-        const isDown = state.courseDir === 'down';
-        btn.disabled = !!g.downOnly;
-        btn.textContent = isDown ? '↓ 下り' : '↑ 上り';
-        btn.classList.toggle('active-up', !isDown && !g.downOnly);
-        btn.classList.toggle('active-down', isDown);
-        btn.title = g.downOnly ? '阪奈は下りのみ' : 'タップで上り／下り切替';
+      renderDirToggle(els.courseDirToggle, state.courseGroup, state.courseDir, {
+        testActive: timeAttack?.isTestMode?.()
+      });
+      renderAttackCourseUI();
+    }
+
+    function selectAttackCourse(groupId) {
+      if (timeAttack?.isRacing?.()) return;
+      if (groupId === 'test') {
+        timeAttack?.setTestMode?.(true);
+        renderCourseUI();
+        return;
       }
+      timeAttack?.setTestMode?.(false);
+      setCourseGroup(groupId);
     }
 
     function setCourseGroup(groupId) {
       const g = COURSE_GROUPS.find((x) => x.id === groupId);
       if (!g) return;
+      if (timeAttack?.isRacing?.()) return;
+      timeAttack?.setTestMode?.(false);
       const dir = g.downOnly ? 'down' : state.courseDir || 'up';
       setCourse(courseKeyFromGroupDir(g.id, dir), { skipGroupRender: true });
       state.courseGroup = g.id;
@@ -2337,6 +2606,7 @@
     function toggleCourseDirection() {
       const g = COURSE_GROUPS.find((x) => x.id === state.courseGroup);
       if (!g || g.downOnly) return;
+      if (timeAttack?.isRacing?.()) return;
       const next = state.courseDir === 'up' ? 'down' : 'up';
       setCourse(courseKeyFromGroupDir(g.id, next), { skipGroupRender: true });
       renderCourseUI();
@@ -2350,6 +2620,7 @@
       if (!opts.skipGroupRender) renderCourseUI();
       fitMapToCourse();
       recalc();
+      timeAttack?.syncCourse();
     }
 
     function resolveVehicleMass(car, wMod) {
@@ -4046,7 +4317,22 @@
       const btn = e.target.closest('[data-group]');
       if (btn?.dataset.group) setCourseGroup(btn.dataset.group);
     });
+    els.attackCourseTabs?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-group]');
+      if (btn?.dataset.group) selectAttackCourse(btn.dataset.group);
+    });
     els.courseDirToggle?.addEventListener('click', () => toggleCourseDirection());
+    els.attackDirToggle?.addEventListener('click', () => {
+      if (timeAttack?.isTestMode?.()) return;
+      if (timeAttack?.isAutoDirCourse?.()) return;
+      toggleCourseDirection();
+    });
+    document.querySelectorAll('.parts-tab').forEach((btn) => {
+      btn.addEventListener('click', () => setPartsPanelTab(btn.dataset.partsTab));
+    });
+    els.resetPartsBtn?.addEventListener('click', resetPartsToDefault);
+    els.resetTuneBtn?.addEventListener('click', resetTuneToDefault);
+    els.resetAllBtn?.addEventListener('click', resetAllSettings);
     els.mapViewCourse?.addEventListener('click', () => setMapView('course'));
     els.mapViewSim?.addEventListener('click', () => setMapView('sim'));
     els.mapFit?.addEventListener('click', () => { fitMapToCourse(); drawCourse(); saveLocal(); });
@@ -4102,6 +4388,7 @@
         self.addEventListener('install', e => {
           e.waitUntil(caches.open(CACHE).then(c => c.addAll([
             './','./index.html','./scripts/red-path-browser.js',
+            './scripts/road-gate.js','./scripts/attack-gates.js','./scripts/time-attack.js',
             './assets/shigisan-ref.png','./assets/minoo-ref.png','./assets/hanna-ref.png'
           ])));
           self.skipWaiting();
@@ -4115,6 +4402,34 @@
         const url = URL.createObjectURL(blob);
         navigator.serviceWorker.register(url).catch(() => {});
       } catch (_) {}
+    }
+
+    if (window.TimeAttack) {
+      timeAttack = TimeAttack.init({
+        getCourseGroup: () => state.courseGroup,
+        getCourseDir: () => state.courseDir,
+        onUiChange: () => renderAttackCourseUI(),
+        onCourseDirDetected: (dir, groupId) => {
+          if (timeAttack?.isTestMode?.()) return;
+          const g = COURSE_GROUPS.find((x) => x.id === (groupId || state.courseGroup));
+          if (!g || g.downOnly) return;
+          const key = courseKeyFromGroupDir(g.id, dir);
+          if (state.courseKey === key) return;
+          setCourse(key, { skipGroupRender: false });
+        },
+        elements: {
+          toggleBtn: $('attackToggle'),
+          gpsPower: $('attackGpsPower'),
+          status: $('attackStatus'),
+          gateNote: $('attackGateNote'),
+          coords: $('attackCoords'),
+          time: $('attackTime'),
+          gpsLog: $('attackGpsLog'),
+          logList: $('attackLogList'),
+          logCount: $('attackLogCount'),
+          clearAllBtn: $('attackLogClearAll')
+        }
+      });
     }
 
     populateSelects();
