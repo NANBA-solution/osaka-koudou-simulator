@@ -296,6 +296,8 @@
           <div id="sectorGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-[10px]"></div>
         </section>
 
+        <div id="affiliate-zone" class="my-1" aria-live="polite"></div>
+
         <!-- Canvas -->
         <section class="course-map-panel border rounded-lg p-2 relative">
           <div class="px-2 pt-2 pb-1 space-y-2">
@@ -352,6 +354,7 @@
   <script src="scripts/road-gate.js"></script>
   <script src="scripts/attack-gates.js"></script>
   <script src="scripts/time-attack.js"></script>
+  <script src="scripts/affiliate-advisory.js"></script>
   <script>
   (function () {
     'use strict';
@@ -4322,6 +4325,7 @@
       renderMeters();
       drawCourse();
       saveLocal();
+      global.AffiliateAdvisory?.update?.(state.courseGroup, state.wet);
     }
 
     ['carPreset', 'courseSelect', 'rpmSlider', 'wetMode', 'massMode', 'customMassKg'].forEach((id) => {
@@ -4433,6 +4437,7 @@
           e.waitUntil(caches.open(CACHE).then(c => c.addAll([
             './','./index.html','./scripts/red-path-browser.js',
             './scripts/road-gate.js','./scripts/attack-gates.js','./scripts/time-attack.js',
+            './scripts/affiliate-advisory.js',
             './assets/shigisan-ref.png','./assets/minoo-ref.png','./assets/hanna-ref.png'
           ])));
           self.skipWaiting();
