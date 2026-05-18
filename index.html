@@ -28,7 +28,14 @@
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
   <style>
     * { box-sizing: border-box; }
-    body { background: #0a0e14; font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      background: #0a0e14;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      overflow-x: clip;
+    }
+    .app-shell { width: 100%; min-width: 0; max-width: 100%; }
     .glow-cyan { text-shadow: 0 0 12px rgba(0,229,255,.6); }
     .glow-red { text-shadow: 0 0 10px rgba(255,61,61,.5); }
     .meter-bump { animation: bump .35s ease-out; }
@@ -203,7 +210,24 @@
       letter-spacing: 0.04em;
     }
     .equip-ad-banner__link:hover { text-decoration: underline; }
-    #app { overflow-x: clip; max-width: 100%; }
+    #app {
+      width: 100%;
+      max-width: 80rem;
+      margin-inline: auto;
+      padding: max(0.75rem, env(safe-area-inset-top, 0px))
+        max(0.75rem, env(safe-area-inset-right, 0px))
+        max(0.75rem, env(safe-area-inset-bottom, 0px))
+        max(0.75rem, env(safe-area-inset-left, 0px));
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      overflow-x: clip;
+    }
+    #app > .app-grid { width: 100%; min-width: 0; }
+    @media (max-width: 640px) {
+      .app-header__title { letter-spacing: 0.06em; font-size: 1rem; }
+      .app-header__sub { letter-spacing: 0.12em; }
+    }
     @media (max-width: 480px) {
       .equip-ad-banner {
         padding: 0.55rem 0.65rem;
@@ -217,25 +241,19 @@
   </style>
 </head>
 <body class="text-slate-300 min-h-screen antialiased">
-  <div id="app" class="max-w-7xl mx-auto p-3 md:p-5 space-y-4">
+  <div id="app">
     <!-- Header -->
-    <header class="flex flex-wrap items-center justify-between gap-3 border border-motec-border bg-motec-panel/80 rounded-lg px-4 py-3 scanline relative">
-      <div>
-        <h1 class="text-lg md:text-xl font-bold tracking-widest">
+    <header class="app-shell flex flex-wrap items-center justify-between gap-2 border border-motec-border bg-motec-panel/80 rounded-lg px-3 py-2.5 md:px-4 md:py-3 scanline relative">
+      <div class="min-w-0 flex-1">
+        <h1 class="app-header__title text-lg md:text-xl font-bold tracking-widest">
           <span class="text-red-500">大阪公道</span><span class="text-motec-accent glow-cyan">シミュレーター</span>
         </h1>
-        <p class="text-[10px] md:text-xs text-slate-500 uppercase tracking-[.25em]">信貴山 · 猿山 · 阪奈 · 赤線コース</p>
+        <p class="app-header__sub text-[10px] md:text-xs text-slate-500 uppercase tracking-[.25em]">信貴山 · 猿山 · 阪奈 · 赤線コース</p>
       </div>
-      <div class="flex items-center gap-3 text-xs">
-        <label class="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" id="wetMode" class="rounded" />
-          <span class="text-sky-400">WET μ</span>
-        </label>
-        <span id="saveIndicator" class="text-slate-600">—</span>
-      </div>
+      <span id="saveIndicator" class="shrink-0 text-xs text-slate-600 tabular-nums">—</span>
     </header>
 
-    <div class="equip-ad-banner equip-ad-banner--tire my-0" role="complementary" aria-label="推奨タイヤバナー">
+    <div class="app-shell equip-ad-banner equip-ad-banner--tire" role="complementary" aria-label="推奨タイヤバナー">
       <div class="equip-ad-banner__head">
         <span class="equip-ad-banner__label">📡 RECOMMENDED_TIRE // 推奨タイヤ</span>
         <span class="equip-ad-banner__badge animate-pulse">● HOT</span>
@@ -251,9 +269,9 @@
       </a>
     </div>
 
-    <div class="grid lg:grid-cols-12 gap-4">
+    <div class="app-grid app-shell grid lg:grid-cols-12 gap-3 md:gap-4">
       <!-- Settings -->
-      <aside class="lg:col-span-3 space-y-3">
+      <aside class="lg:col-span-3 space-y-3 min-w-0 w-full">
         <section class="attack-panel border border-red-900/40 rounded-lg p-4 space-y-3" aria-labelledby="attackHeading">
           <div class="flex items-start justify-between gap-2 border-b border-motec-border pb-2">
             <div>
@@ -348,7 +366,7 @@
       </aside>
 
       <!-- Meters + Canvas -->
-      <main class="lg:col-span-9 space-y-4">
+      <main class="lg:col-span-9 space-y-4 min-w-0 w-full">
         <!-- Lap time hero -->
         <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div class="col-span-2 md:col-span-1 bg-motec-panel border border-motec-border rounded-lg p-4 relative overflow-hidden scanline">
@@ -383,7 +401,7 @@
           <div id="sectorGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-[10px]"></div>
         </section>
 
-        <div class="equip-ad-banner equip-ad-banner--gear my-4" role="complementary" aria-label="推奨装備バナー">
+        <div class="app-shell equip-ad-banner equip-ad-banner--gear my-2 md:my-4" role="complementary" aria-label="推奨装備バナー">
           <div class="equip-ad-banner__head">
             <span class="equip-ad-banner__label">📡 RECOMMENDED_EQUIPMENT // 推奨装備</span>
             <span class="equip-ad-banner__badge animate-pulse">● HOT</span>
@@ -1356,7 +1374,6 @@
         if (st.targetPowerPs > 0) {
           lines.push(`  · 目標出力: ${st.targetPowerPs}PS（スライダー${st.powerScalePct ?? 100}%）`);
         }
-        if (st.wet) lines.push('  · 路面: ウェット[モデル]');
         lines.push(`  └ ${EVIDENCE.brakes.ref}`);
       }
 
@@ -2416,7 +2433,6 @@
       courseDirToggle: $('courseDirToggle'),
       rpmSlider: $('rpmSlider'),
       rpmVal: $('rpmVal'),
-      wetMode: $('wetMode'),
       lapTime: $('lapTime'),
       lapDist: $('lapDist'),
       simSummaryMain: $('simSummaryMain'),
@@ -2591,7 +2607,6 @@
       if (els.customMassKg) els.customMassKg.value = '';
       if (els.powerSlider) els.powerSlider.value = 100;
       if (els.targetPowerPs) els.targetPowerPs.value = '';
-      if (els.wetMode) els.wetMode.checked = false;
       applyCarPreset(state.carKey, false);
       updateTuneUi();
       recalc();
@@ -2630,7 +2645,6 @@
         localStorage.removeItem('osaka_kodo_attack_log_v2');
       } catch (_) {}
       els.carPreset.value = state.carKey;
-      els.wetMode.checked = false;
       renderPartsUI();
       applyCarPreset(state.carKey, false);
       updateTuneUi();
@@ -4307,7 +4321,6 @@
         courseGroup: state.courseGroup,
         courseDir: state.courseDir,
         Ne: state.Ne,
-        wet: state.wet,
         mapView: state.mapView,
         mapZoom: state.mapZoom,
         mapPanX: state.mapPanX,
@@ -4350,7 +4363,6 @@
         if (data.courseGroup) state.courseGroup = data.courseGroup;
         if (data.courseDir) state.courseDir = data.courseDir;
         if (typeof data.Ne === 'number') state.Ne = data.Ne;
-        if (typeof data.wet === 'boolean') state.wet = data.wet;
         if (data.mapView === 'sim' || data.mapView === 'course') state.mapView = data.mapView;
         if (typeof data.mapZoom === 'number') state._savedMapZoom = data.mapZoom;
         if (typeof data.mapPanX === 'number') state.mapPanX = data.mapPanX;
@@ -4361,7 +4373,6 @@
         syncCourseGroupState();
         els.carPreset.value = state.carKey;
         els.courseSelect.value = state.courseKey;
-        els.wetMode.checked = state.wet;
         if (els.massMode) els.massMode.value = state.massMode;
         if (els.customMassKg) els.customMassKg.value = state.customMassKg || '';
         if (els.powerSlider) els.powerSlider.value = state.powerScalePct;
@@ -4412,7 +4423,7 @@
         renderCourseUI();
         fitMapToCourse();
       }
-      state.wet = els.wetMode.checked;
+      state.wet = false;
       updateMapZoomLabel();
       updateTuneUi();
       applyCarPreset(state.carKey, prevCar === state.carKey);
@@ -4427,7 +4438,7 @@
       saveLocal();
     }
 
-    ['carPreset', 'courseSelect', 'rpmSlider', 'wetMode', 'massMode', 'customMassKg'].forEach((id) => {
+    ['carPreset', 'courseSelect', 'rpmSlider', 'massMode', 'customMassKg'].forEach((id) => {
       const el = $(id);
       if (!el) return;
       el.addEventListener('input', recalc);
@@ -4531,7 +4542,7 @@
     // PWA service worker (inline blob)
     if ('serviceWorker' in navigator) {
       const swCode = `
-        const CACHE='setup-lab-v2';
+        const CACHE='setup-lab-v3';
         self.addEventListener('install', e => {
           e.waitUntil(caches.open(CACHE).then(c => c.addAll([
             './','./index.html','./scripts/red-path-browser.js',
