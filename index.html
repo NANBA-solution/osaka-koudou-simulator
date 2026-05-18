@@ -143,6 +143,18 @@
       max-height: min(48vh, 360px);
       overflow-y: auto;
     }
+    .equip-ad-banner {
+      border: 1px solid #1f2937;
+      background: #070707;
+      padding: 0.75rem;
+      font-family: ui-monospace, monospace;
+      border-radius: 0.125rem;
+      font-size: 0.75rem;
+      height: 80px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
   </style>
 </head>
 <body class="text-slate-300 min-h-screen antialiased">
@@ -163,6 +175,23 @@
         <span id="saveIndicator" class="text-slate-600">—</span>
       </div>
     </header>
+
+    <div class="equip-ad-banner text-left my-0" role="complementary" aria-label="推奨装備バナー">
+      <div class="flex justify-between text-[9px] tracking-widest text-gray-500 font-bold">
+        <span>📡 RECOMMENDED_EQUIPMENT // 推奨装備</span>
+        <span class="text-red-500 animate-pulse">● HOT</span>
+      </div>
+      <p class="text-gray-400 text-[11px] truncate">
+        &gt; 峠・公道ガチ勢の必需品。超高グリップタイヤ＆プロ仕様レーシンググローブ。
+      </p>
+      <a href="https://www.amazon.co.jp/s?k=%E3%83%8F%E3%82%A4%E3%82%B0%E3%83%AA%E3%83%83%E3%83%97%E3%82%BF%E3%82%A4%E3%83%A4+%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%B3%E3%82%B0%E3%82%B0%E3%83%AD%E3%83%BC%E3%83%96&amp;tag=irohack0d-22"
+         target="_blank"
+         rel="noopener noreferrer sponsored"
+         class="text-red-400 font-bold tracking-wider text-[11px] hover:underline block text-right"
+         style="color: #f87171;">
+        👉 Amazonで最安値の適合装備をチェックする
+      </a>
+    </div>
 
     <div class="grid lg:grid-cols-12 gap-4">
       <!-- Settings -->
@@ -296,7 +325,22 @@
           <div id="sectorGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-[10px]"></div>
         </section>
 
-        <div id="affiliate-zone" class="my-1" aria-live="polite"></div>
+        <div class="equip-ad-banner text-left my-4" role="complementary" aria-label="推奨装備バナー">
+          <div class="flex justify-between text-[9px] tracking-widest text-gray-500 font-bold">
+            <span>📡 RECOMMENDED_EQUIPMENT // 推奨装備</span>
+            <span class="text-red-500 animate-pulse">● HOT</span>
+          </div>
+          <p class="text-gray-400 text-[11px] truncate">
+            &gt; 峠・公道ガチ勢の必需品。超高グリップタイヤ＆プロ仕様レーシンググローブ。
+          </p>
+          <a href="https://www.amazon.co.jp/s?k=%E3%83%8F%E3%82%A4%E3%82%B0%E3%83%AA%E3%83%83%E3%83%97%E3%82%BF%E3%82%A4%E3%83%A4+%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%B3%E3%82%B0%E3%82%B0%E3%83%AD%E3%83%BC%E3%83%96&amp;tag=irohack0d-22"
+             target="_blank"
+             rel="noopener noreferrer sponsored"
+             class="text-red-400 font-bold tracking-wider text-[11px] hover:underline block text-right"
+             style="color: #f87171;">
+            👉 Amazonで最安値の適合装備をチェックする
+          </a>
+        </div>
 
         <!-- Canvas -->
         <section class="course-map-panel border rounded-lg p-2 relative">
@@ -354,7 +398,6 @@
   <script src="scripts/road-gate.js"></script>
   <script src="scripts/attack-gates.js"></script>
   <script src="scripts/time-attack.js"></script>
-  <script src="scripts/affiliate-advisory.js"></script>
   <script>
   (function () {
     'use strict';
@@ -4325,7 +4368,6 @@
       renderMeters();
       drawCourse();
       saveLocal();
-      global.AffiliateAdvisory?.update?.(state.courseGroup, state.wet);
     }
 
     ['carPreset', 'courseSelect', 'rpmSlider', 'wetMode', 'massMode', 'customMassKg'].forEach((id) => {
@@ -4436,8 +4478,7 @@
         self.addEventListener('install', e => {
           e.waitUntil(caches.open(CACHE).then(c => c.addAll([
             './','./index.html','./scripts/red-path-browser.js',
-            './scripts/road-gate.js','./scripts/attack-gates.js','./scripts/time-attack.js',
-            './scripts/affiliate-advisory.js',
+            './scripts/road-gate.js','./scripts/attack-gates.js',            './scripts/time-attack.js',
             './assets/shigisan-ref.png','./assets/minoo-ref.png','./assets/hanna-ref.png'
           ])));
           self.skipWaiting();
