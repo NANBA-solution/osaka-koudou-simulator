@@ -393,13 +393,16 @@
         </section>
 
         <!-- Segment meters -->
-        <section class="bg-motec-panel border border-motec-border rounded-lg p-3 max-h-72 overflow-y-auto">
-          <div class="flex flex-wrap items-baseline justify-between gap-2 mb-2">
-            <h3 class="text-[10px] uppercase text-slate-500 tracking-widest">区間別走行（S→F）</h3>
-            <span class="text-[9px] text-slate-600">入速→出速 · 勾配 · ギア比 · ブレーキ · 時間</span>
+        <details class="parts-fold border border-motec-border rounded-lg" id="sectorSection">
+          <summary>
+            <span>区間別走行（S→F）</span>
+            <span class="parts-fold-chevron" aria-hidden="true">▼</span>
+          </summary>
+          <div class="parts-fold-body">
+            <p class="text-[9px] text-slate-600 mb-2">入速→出速 · 勾配 · ギア比 · ブレーキ · 時間</p>
+            <div id="sectorGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-[10px]"></div>
           </div>
-          <div id="sectorGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-[10px]"></div>
-        </section>
+        </details>
 
         <div class="app-shell equip-ad-banner equip-ad-banner--gear my-2 md:my-4" role="complementary" aria-label="推奨装備バナー">
           <div class="equip-ad-banner__head">
