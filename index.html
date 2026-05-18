@@ -114,6 +114,35 @@
     }
     .parts-tab.active { border-color: #00e5ff; color: #00e5ff; background: #111820; }
     .parts-tab-panel.hidden { display: none; }
+    .parts-fold { background: #0d1219; }
+    .parts-fold > summary {
+      list-style: none;
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding: 0.55rem 0.75rem;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #00e5ff;
+    }
+    .parts-fold > summary::-webkit-details-marker { display: none; }
+    .parts-fold > summary::marker { content: ''; }
+    .parts-fold-chevron {
+      font-size: 9px;
+      color: #64748b;
+      transition: transform 0.15s ease;
+    }
+    .parts-fold[open] > summary .parts-fold-chevron { transform: rotate(180deg); }
+    .parts-fold-body {
+      padding: 0 0.75rem 0.75rem;
+      max-height: min(48vh, 360px);
+      overflow-y: auto;
+    }
   </style>
 </head>
 <body class="text-slate-300 min-h-screen antialiased">
@@ -201,27 +230,33 @@
           </div>
         </section>
 
-        <section class="bg-motec-panel border border-motec-border rounded-lg p-4 space-y-2 max-h-[min(70vh,520px)] overflow-y-auto">
-          <div class="flex gap-1 sticky top-0 bg-motec-panel z-10 pb-2 -mx-1 px-1" role="tablist" aria-label="パーツパネル">
-            <button type="button" class="parts-tab active" data-parts-tab="parts">パーツ</button>
-            <button type="button" class="parts-tab" data-parts-tab="reset">リセット</button>
+        <details class="parts-fold border border-motec-border rounded-lg" id="partsSection">
+          <summary>
+            <span>Parts · パーツ</span>
+            <span class="parts-fold-chevron" aria-hidden="true">▼</span>
+          </summary>
+          <div class="parts-fold-body space-y-2">
+            <div class="flex gap-1 sticky top-0 bg-[#0d1219] z-10 pb-1.5 -mx-0.5 px-0.5" role="tablist" aria-label="パーツパネル">
+              <button type="button" class="parts-tab active" data-parts-tab="parts">パーツ</button>
+              <button type="button" class="parts-tab" data-parts-tab="reset">リセット</button>
+            </div>
+            <div id="partsTabParts" class="parts-tab-panel space-y-1">
+              <div id="partsContainer" class="space-y-1"></div>
+            </div>
+            <div id="partsTabReset" class="parts-tab-panel hidden space-y-2 pt-0.5">
+              <p class="text-[9px] text-slate-500 leading-relaxed">設定を初期状態に戻します。タイム記録はGPS枠の「全削除」で消せます。</p>
+              <button type="button" id="resetPartsBtn" class="w-full py-1.5 text-[10px] font-bold rounded border border-motec-border text-slate-300 hover:border-motec-accent hover:text-motec-accent">
+                パーツを初期化
+              </button>
+              <button type="button" id="resetTuneBtn" class="w-full py-1.5 text-[10px] font-bold rounded border border-motec-border text-slate-300 hover:border-motec-accent hover:text-motec-accent">
+                チューニングを初期化
+              </button>
+              <button type="button" id="resetAllBtn" class="w-full py-1.5 text-[10px] font-bold rounded border border-red-900/60 text-red-300 bg-red-950/30 hover:bg-red-950/50">
+                すべて初期化（保存データ含む）
+              </button>
+            </div>
           </div>
-          <div id="partsTabParts" class="parts-tab-panel space-y-1.5">
-            <div id="partsContainer" class="space-y-1.5"></div>
-          </div>
-          <div id="partsTabReset" class="parts-tab-panel hidden space-y-3 pt-1">
-            <p class="text-[10px] text-slate-500 leading-relaxed">設定を初期状態に戻します。タイム記録はGPS枠の「全削除」で消せます。</p>
-            <button type="button" id="resetPartsBtn" class="w-full py-2 text-[11px] font-bold rounded border border-motec-border text-slate-300 hover:border-motec-accent hover:text-motec-accent">
-              パーツを初期化
-            </button>
-            <button type="button" id="resetTuneBtn" class="w-full py-2 text-[11px] font-bold rounded border border-motec-border text-slate-300 hover:border-motec-accent hover:text-motec-accent">
-              チューニングを初期化
-            </button>
-            <button type="button" id="resetAllBtn" class="w-full py-2 text-[11px] font-bold rounded border border-red-900/60 text-red-300 bg-red-950/30 hover:bg-red-950/50">
-              すべて初期化（保存データ含む）
-            </button>
-          </div>
-        </section>
+        </details>
 
       </aside>
 
@@ -2306,6 +2341,7 @@
       mapZoomLabel: $('mapZoomLabel'),
       attackCourseTabs: $('attackCourseTabs'),
       attackDirToggle: $('attackDirToggle'),
+      partsSection: $('partsSection'),
       partsTabParts: $('partsTabParts'),
       partsTabReset: $('partsTabReset'),
       resetPartsBtn: $('resetPartsBtn'),
@@ -4172,7 +4208,8 @@
         mapView: state.mapView,
         mapZoom: state.mapZoom,
         mapPanX: state.mapPanX,
-        mapPanY: state.mapPanY
+        mapPanY: state.mapPanY,
+        partsOpen: !!els.partsSection?.open
       };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -4215,6 +4252,9 @@
         if (typeof data.mapZoom === 'number') state._savedMapZoom = data.mapZoom;
         if (typeof data.mapPanX === 'number') state.mapPanX = data.mapPanX;
         if (typeof data.mapPanY === 'number') state.mapPanY = data.mapPanY;
+        if (els.partsSection && typeof data.partsOpen === 'boolean') {
+          els.partsSection.open = data.partsOpen;
+        }
         syncCourseGroupState();
         els.carPreset.value = state.carKey;
         els.courseSelect.value = state.courseKey;
@@ -4328,8 +4368,12 @@
       toggleCourseDirection();
     });
     document.querySelectorAll('.parts-tab').forEach((btn) => {
-      btn.addEventListener('click', () => setPartsPanelTab(btn.dataset.partsTab));
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        setPartsPanelTab(btn.dataset.partsTab);
+      });
     });
+    els.partsSection?.addEventListener('toggle', saveLocal);
     els.resetPartsBtn?.addEventListener('click', resetPartsToDefault);
     els.resetTuneBtn?.addEventListener('click', resetTuneToDefault);
     els.resetAllBtn?.addEventListener('click', resetAllSettings);
