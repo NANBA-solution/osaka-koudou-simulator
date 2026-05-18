@@ -512,7 +512,48 @@ export function extractMarkerPairPath(data, w, h, opts = {}) {
   return bestPath;
 }
 
+/** 環状線：地図4隅を時計回りスプライン（ギザギザ防止） */
+export function extractKanjoLoopPath(data, w, h, opts = {}) {
+  const nPts = opts.nPts ?? 120;
+  const waypoints = [
+    [0.207, 0.461],
+    [0.22, 0.14],
+    [0.75, 0.17],
+    [0.78, 0.8],
+    [0.18, 0.8]
+  ];
+  const m = waypoints.length;
+  const dense = [];
+  const nPerSeg = Math.max(16, Math.round(nPts / m));
+  for (let i = 0; i < m; i++) {
+    const p0 = waypoints[(i - 1 + m) % m];
+    const p1 = waypoints[i];
+    const p2 = waypoints[(i + 1) % m];
+    const p3 = waypoints[(i + 2) % m];
+    for (let j = 0; j < nPerSeg; j++) {
+      const t = j / nPerSeg;
+      const t2 = t * t;
+      const t3 = t2 * t;
+      const u =
+        0.5 *
+        (2 * p1[0] +
+          (-p0[0] + p2[0]) * t +
+          (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 +
+          (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3);
+      const v =
+        0.5 *
+        (2 * p1[1] +
+          (-p0[1] + p2[1]) * t +
+          (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 +
+          (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
+      dense.push({ x: u * w, y: v * h });
+    }
+  }
+  return resampleChain(dense, w, h, nPts);
+}
+
 export function extractPinToPinPath(data, w, h, opts = {}) {
+  if (opts.kanjoLoop || opts.kanjoSmooth) return extractKanjoLoopPath(data, w, h, opts);
   if (opts.markerPair) return extractMarkerPairPath(data, w, h, opts);
 
   const {
@@ -557,6 +598,7 @@ export function extractPinToPinPath(data, w, h, opts = {}) {
 
 /** @deprecated 互換: 新APIへ委譲 */
 export function extractPathFromRgba(data, w, h, opts = {}) {
+  if (opts.kanjoLoop || opts.kanjoSmooth) return extractKanjoLoopPath(data, w, h, opts);
   if (opts.markerPair || opts.hannaRoute) return extractMarkerPairPath(data, w, h, opts);
   return extractPinToPinPath(data, w, h, {
     startCorner: opts.startCorner ?? 'll',

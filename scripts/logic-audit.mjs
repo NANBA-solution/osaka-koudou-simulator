@@ -6,6 +6,7 @@
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { buildKanjoLandmarkSegments } from './kanjo-landmark-profile.mjs';
 
 const G = 9.80665;
 const RHO = 1.225;
@@ -102,20 +103,28 @@ function solvePowerMs(theta, rpmCap, scale) {
 }
 
 /** index.html cornerLimitMs と同一 */
-function cornerLimitMs(mu, R, modifier = 1) {
-  const Reff = Math.min(120, Math.max(R, 12));
+function cornerLimitMs(mu, R, modifier = 1, course) {
+  const rCap = course?.logic === 'expressway' ? 650 : 120;
+  const Reff = Math.min(rCap, Math.max(R, 12));
   return Math.sqrt(mu * G * Reff * modifier);
 }
 
 /** 修正後 cornerLimitMsForSeg と同一 */
 function cornerLimitMsForSeg(mu, R, grip, logic) {
-  let vLim = cornerLimitMs(mu, R ?? 9999, 1);
+  const course = logic === 'expressway' ? { logic: 'expressway' } : null;
+  let vLim = cornerLimitMs(mu, R ?? 9999, 1, course);
   if (logic === 'lateral') vLim *= Math.pow(mu / 0.88, 0.42);
   return vLim * grip;
 }
 
 function segmentStraightVmaxMs(theta, scale, course) {
   let vMs = solvePowerMs(theta, 7400, scale);
+  if (course.logic === 'expressway') {
+    const vGearMs =
+      (7400 * 60 * gr86.tireCircumM) / (gr86.finalDrive * gr86.gears.at(-1) * 1000) / 3.6;
+    vMs = Math.min(vMs, vGearMs, gr86.vmaxCatalog / 3.6);
+    return vMs;
+  }
   if ((course.logic === 'climb' || course.logic === 'mixed') && theta > 0.01) {
     vMs /= 1 + theta * (course.climbPenalty ?? 1.15) * 4;
   }
@@ -212,6 +221,19 @@ if (html.includes("logic: 'downhill'") && html.includes('hanna_down')) {
   pass('阪奈下り logic:downhill');
 }
 
+if (html.includes("logic: 'expressway'") && html.includes('kanjo_lap')) {
+  pass('環状 expressway + kanjo_lap');
+}
+
+const vExp = segmentStraightVmaxMs(0, scale, { logic: 'expressway' }) * 3.6;
+if (vExp < gr86.vmaxCatalog - 2 || vExp > gr86.vmaxCatalog + 1) {
+  fail(`expressway直線 ${vExp.toFixed(0)} ≠ 公称${gr86.vmaxCatalog}`);
+} else pass(`expressway直線 = 公称vmax ${vExp.toFixed(0)}km/h`);
+
+const vCornerExp = cornerLimitMsForSeg(0.84 * 0.93, 420, 0.97, 'expressway');
+if (vCornerExp * 3.6 < 180) fail(`expresswayコーナ R420 限界が低すぎ ${(vCornerExp * 3.6).toFixed(0)}`);
+else pass(`expresswayコーナ R420 → ${(vCornerExp * 3.6).toFixed(0)}km/h`);
+
 // ── 5. 簡易ラップ＋不変条件 ──
 function buildArc(path) {
   const cum = [0];
@@ -233,7 +255,7 @@ function uvAt(path, arc, f) {
   ];
 }
 
-function analyze(path, arc, f0, f1, totalM) {
+function analyze(path, arc, f0, f1, totalM, rCap = 150) {
   let prev = uvAt(path, arc, f0);
   let lenM = 0;
   let heading = null;
@@ -254,7 +276,7 @@ function analyze(path, arc, f0, f1, totalM) {
     heading = h;
     prev = p;
   }
-  const R = turn > 0.08 ? Math.max(20, Math.min(lenM / turn, 150)) : 9999;
+  const R = turn > 0.08 ? Math.max(20, Math.min(lenM / turn, rCap)) : 9999;
   return { type: R < 78 ? 'corner' : 'straight', R: Math.round(R), lenM };
 }
 
@@ -355,6 +377,63 @@ function simulateFull(path, cfg) {
   return { t, peakKmh, avg: (cfg.m / 1000) / (t / 3600) };
 }
 
+function simulateKanjoPath(path, cfg) {
+  const segs = buildKanjoLandmarkSegments(path, { totalMeters: cfg.m });
+  const course = { logic: 'expressway' };
+  const grip = cfg.grip;
+  const mu = 0.84 * 0.93;
+  const aBrake = 0.72 * G;
+  let v = 80 / 3.6;
+  let t = 0;
+  let coursePeakMs = 0;
+  for (let i = 0; i < segs.length; i++) {
+    const s = segs[i];
+    const next = segs[i + 1];
+    if (s.type === 'straight') {
+      const vMax = segmentStraightVmaxMs(0, scale, course);
+      const vLimNext =
+        next?.type === 'corner' ? cornerLimitMsForSeg(mu, next.R, grip, 'expressway') : null;
+      let peak = v;
+      let dist = 0;
+      const dt = 0.04;
+      while (dist < s.len - 0.05) {
+        const rem = s.len - dist;
+        const mustBrake =
+          vLimNext != null &&
+          v > vLimNext + 0.2 &&
+          (v * v - vLimNext * vLimNext) / (2 * aBrake) >= rem - 0.08;
+        let vNew;
+        if (mustBrake) vNew = Math.max(vLimNext, v - aBrake * dt);
+        else {
+          const traction = mu * G * (gr86.Lr / gr86.L);
+          const g = pickGear(v, 7400, scale);
+          const rpm = Math.min(7400, Math.max(1200, rpmFromGear(Math.max(v, 0.5), g)));
+          const Fd = (powerKw(rpm, scale) * 1000) / Math.max(v, 0.5);
+          const Fa = 0.5 * RHO * gr86.Cd * gr86.A * v * v;
+          const Fr = gr86.Crr * gr86.m * G;
+          const a = Math.max(0.15, Math.min(traction, (Fd - Fa - Fr) / gr86.m));
+          vNew = Math.min(v + a * dt, vMax);
+        }
+        const dStep = Math.min(rem, Math.max((v + vNew) * 0.5 * dt, 0.02));
+        t += dStep / Math.max((v + vNew) * 0.5, 0.5);
+        dist += dStep;
+        v = vNew;
+        peak = Math.max(peak, vNew);
+      }
+      coursePeakMs = Math.max(coursePeakMs, peak);
+    } else {
+      const vLim = cornerLimitMsForSeg(mu, s.R, grip, 'expressway');
+      if (v > vLim + 0.3) {
+        t += (v - vLim) / aBrake;
+        v = vLim;
+      }
+      t += s.len / Math.max(v, 3);
+      v = Math.min(v, vLim);
+    }
+  }
+  return { t, peakKmh: coursePeakMs * 3.6, avg: (cfg.m / 1000) / (t / 3600) };
+}
+
 const RUNS = [
   { key: 'shigisan_up', base: 'shigisan', down: false, m: 4200, sign: 1, ceil: 125, logic: 'mixed', grip: 0.92 },
   { key: 'shigisan_down', base: 'shigisan', down: true, m: 4200, sign: -1, ceil: 140, logic: 'mixed', grip: 0.92 },
@@ -377,6 +456,15 @@ for (const cfg of RUNS) {
   console.log(
     `${cfg.key}: ピーク${r.peakKmh.toFixed(0)}/${cfg.ceil}km/h 平均${r.avg.toFixed(0)}km/h (${(r.t / 60).toFixed(1)}min)`
   );
+}
+
+if (paths.kanjo?.length) {
+  const r = simulateKanjoPath(paths.kanjo, { m: 10300, grip: 0.97 });
+  console.log(
+    `kanjo_lap: ピーク${r.peakKmh.toFixed(0)}/${gr86.vmaxCatalog}km/h 平均${r.avg.toFixed(0)}km/h (${(r.t / 60).toFixed(1)}min)`
+  );
+  if (r.t < 175 * 0.92 || r.t > 295 * 1.08) fail(`kanjo_lap ラップ ${r.t.toFixed(0)}s が妥当帯外`);
+  if (r.peakKmh < 195) fail(`kanjo_lap ピーク ${r.peakKmh.toFixed(0)} < 195km/h`);
 }
 
 console.log('\n── 不変条件 OK ──');

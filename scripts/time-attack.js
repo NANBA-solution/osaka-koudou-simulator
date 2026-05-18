@@ -106,6 +106,10 @@
     };
   }
 
+  function isLapGateGroup(groupId) {
+    return !!(global.ATTACK_GATES?.[groupId]?.lap);
+  }
+
   function resolveGateConfig(groupId, dir) {
     const gates = global.ATTACK_GATES;
     if (!gates) return null;
@@ -113,6 +117,7 @@
       return gates.test?.lap || gates.test?.up || null;
     }
     if (!gates[groupId]) return null;
+    if (dir === 'lap' && gates[groupId].lap) return gates[groupId].lap;
     const branch = gates[groupId][dir] || gates[groupId].down || gates[groupId].up;
     return branch || null;
   }
@@ -283,8 +288,9 @@
 
     function updateGateNote(cfg) {
       if (!els.gateNote || !cfg) return;
-      if (testMode) {
-        els.gateNote.textContent = `${cfg.name} · 同一計測地点を2回通過で計測`;
+      if (testMode || cfg.lapMode) {
+        els.gateNote.textContent =
+          `${cfg.name} · 計測基点を通過するたびにラップ記録（2周目以降も自動継続）`;
         return;
       }
       if (cfg.bidirectional) {
@@ -412,7 +418,7 @@
       if (isRacing) return gateLoadPromise || Promise.resolve();
       const token = ++syncToken;
       const group = testMode ? 'test' : getCourseGroup();
-      const dir = testMode ? 'lap' : getCourseDir();
+      const dir = testMode || isLapGateGroup(group) ? 'lap' : getCourseDir();
       const branch = resolveGateConfig(group, dir);
 
       if (!branch) {
@@ -440,6 +446,10 @@
             cfg = await resolveBidirectionalGates(group);
           } else {
             cfg = await resolveBranchGates(branch);
+            if (isLapGateGroup(group)) {
+              cfg.lapMode = true;
+              cfg.courseDir = 'lap';
+            }
           }
           if (token !== syncToken) return;
           pendingBidirectional = useAutoDir ? cfg : null;
@@ -508,7 +518,40 @@
       }
 
       if (lastPosition) {
-        if (!isRacing) {
+        if (currentConfig.lapMode && currentConfig.start?.pA) {
+          const crossedLine = checkIntersection(
+            lastPosition, currentPos,
+            currentConfig.start.pA, currentConfig.start.pB
+          );
+          if (crossedLine) {
+            const timeDiff = currentPos.time - lastPosition.time;
+            const crossTime = lastPosition.time + timeDiff * 0.5;
+            if (!isRacing) {
+              isRacing = true;
+              goalArmed = false;
+              startGateMid = gateMidpoint(currentConfig.start);
+              startTime = crossTime;
+              setStatus(MSG.racing, 'racing');
+              setTimerClass('racing');
+              addGpsLog('計測基点通過 → ラップ計測開始');
+              if (uiInterval) clearInterval(uiInterval);
+              uiInterval = setInterval(() => {
+                if (els.time) els.time.textContent = formatTime(performance.now() - startTime);
+              }, 33);
+            } else if (crossTime - startTime >= MIN_RACE_MS) {
+              const finalTime = crossTime - startTime;
+              if (els.time) els.time.textContent = formatTime(finalTime);
+              setStatus(MSG.finished, 'finished');
+              setTimerClass('finished');
+              pushResult(finalTime);
+              addGpsLog(`計測基点通過 → ラップ ${formatTime(finalTime)} 記録 · 継続`);
+              startTime = crossTime;
+              goalArmed = false;
+              setStatus(MSG.racing, 'racing');
+              setTimerClass('racing');
+            }
+          }
+        } else if (!isRacing) {
           if (currentConfig.bidirectional) {
             const crossedA = checkIntersection(
               lastPosition, currentPos,
@@ -542,7 +585,7 @@
               }, 33);
             }
           }
-        } else {
+        } else if (!currentConfig.lapMode) {
           if (!goalArmed && startGateMid) {
             const elapsed = performance.now() - startTime;
             const away = distM(currentPos, startGateMid);

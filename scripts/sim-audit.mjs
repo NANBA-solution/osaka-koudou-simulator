@@ -5,6 +5,7 @@
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { buildKanjoLandmarkSegments } from './kanjo-landmark-profile.mjs';
 
 const G = 9.80665;
 const RHO = 1.225;
@@ -18,7 +19,8 @@ const LAP_REF = {
   shigisan_down: { min: 165, max: 245 },
   saruyama_up: { min: 130, max: 215 },
   saruyama_down: { min: 125, max: 210 },
-  hanna_down: { min: 145, max: 235 }
+  hanna_down: { min: 145, max: 235 },
+  kanjo_lap: { min: 175, max: 295, peakMin: 195, peakMax: 230 }
 };
 
 const gr86 = {
@@ -122,9 +124,65 @@ function maxAccel(vMs, mu, rpmCap, theta, scale) {
   return Math.max(0.15, Math.min(traction, (Fd - Fa - Fr - Fg) / gr86.m));
 }
 
-function cornerV(R, mu, grip) {
-  const Re = Math.max(12, Math.min(R, 120));
+function cornerV(R, mu, grip, expressway = false) {
+  const rCap = expressway ? 650 : 120;
+  const Re = Math.max(12, Math.min(R, rCap));
   return Math.sqrt(mu * G * Re) * grip;
+}
+
+function segmentVmaxExpressway(theta, scale) {
+  let vMs = solvePower(theta, 7400, scale) / 3.6;
+  const vGearMs =
+    (7400 * 60 * gr86.tireCircumM) / (gr86.finalDrive * gr86.gears.at(-1) * 1000) / 3.6;
+  vMs = Math.min(vMs, vGearMs, gr86.vmaxCatalog / 3.6);
+  return vMs;
+}
+
+function simulateKanjo(path, totalM, grip, scale) {
+  const mu = 0.84 * 0.93;
+  const segs = buildKanjoLandmarkSegments(path, { totalMeters: totalM });
+  let v = 80 / 3.6;
+  let t = 0;
+  let peak = 0;
+  const aBrake = 0.72 * G;
+  for (let i = 0; i < segs.length; i++) {
+    const s = segs[i];
+    const next = segs[i + 1];
+    if (s.type === 'straight') {
+      const vLimNext = next?.type === 'corner' ? cornerV(next.R, mu, grip, true) : null;
+      const vMax = segmentVmaxExpressway(0, scale);
+      let dist = 0;
+      const dt = 0.04;
+      while (dist < s.len - 0.05) {
+        const rem = s.len - dist;
+        const mustBrake =
+          vLimNext != null &&
+          v > vLimNext + 0.2 &&
+          (v * v - vLimNext * vLimNext) / (2 * aBrake) >= rem - 0.08;
+        let vNew;
+        if (mustBrake) vNew = Math.max(vLimNext, v - aBrake * dt);
+        else {
+          const a = maxAccel(v, mu, 7400, 0, scale);
+          vNew = Math.min(v + a * dt, vMax);
+        }
+        const dStep = Math.min(rem, Math.max((v + vNew) * 0.5 * dt, 0.02));
+        t += dStep / Math.max((v + vNew) * 0.5, 0.5);
+        dist += dStep;
+        v = vNew;
+        peak = Math.max(peak, v);
+      }
+    } else {
+      const vLim = cornerV(s.R, mu, grip, true);
+      if (v > vLim + 0.3) {
+        t += (v - vLim) / aBrake;
+        v = vLim;
+      }
+      t += s.len / Math.max(v, 3);
+      v = Math.min(v, vLim);
+    }
+  }
+  const avg = (totalM / 1000) / (t / 3600);
+  return { t, avg, peak: peak * 3.6 };
 }
 
 function buildArc(path) {
@@ -147,7 +205,7 @@ function uvAt(path, arc, f) {
   ];
 }
 
-function analyze(path, arc, f0, f1, totalM) {
+function analyze(path, arc, f0, f1, totalM, rCap = 150) {
   let prev = uvAt(path, arc, f0);
   let lenM = 0;
   let heading = null;
@@ -168,7 +226,7 @@ function analyze(path, arc, f0, f1, totalM) {
     heading = h;
     prev = p;
   }
-  const R = turn > 0.08 ? Math.max(20, Math.min(lenM / turn, 150)) : 9999;
+  const R = turn > 0.08 ? Math.max(20, Math.min(lenM / turn, rCap)) : 9999;
   return { type: R < 78 ? 'corner' : 'straight', R: Math.round(R), lenM };
 }
 
@@ -291,4 +349,24 @@ for (const [key, cfg] of Object.entries(COURSES)) {
   console.log(
     `${key}: ${fmt(r.t)} 平均${r.avg.toFixed(0)}km/h ピーク${r.peak.toFixed(0)}/${cfg.ceil}km/h ${ok ? '妥当帯OK' : '妥当帯外'}`
   );
+}
+
+{
+  const path = paths.kanjo;
+  const ref = LAP_REF.kanjo_lap;
+  const r = simulateKanjo(path, 10300, 0.97, scale);
+  const timeOk = r.t >= ref.min * 0.92 && r.t <= ref.max * 1.08;
+  const peakOk = r.peak >= ref.peakMin && r.peak <= ref.peakMax + 2;
+  const ceilLabel = `${gr86.vmaxCatalog}公称`;
+  console.log(
+    `kanjo_lap: ${fmt(r.t)} 平均${r.avg.toFixed(0)}km/h ピーク${r.peak.toFixed(0)}/${ceilLabel}km/h ${timeOk && peakOk ? '妥当帯OK' : '妥当帯外'}`
+  );
+  if (!timeOk) {
+    console.error(`  ✗ ラップ ${r.t.toFixed(1)}s 期待 ${ref.min * 0.92}–${ref.max * 1.08}s`);
+    process.exit(1);
+  }
+  if (!peakOk) {
+    console.error(`  ✗ ピーク ${r.peak.toFixed(0)}km/h 期待 ${ref.peakMin}–${ref.peakMax}km/h`);
+    process.exit(1);
+  }
 }

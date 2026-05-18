@@ -10,7 +10,8 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CONFIG = {
   shigisan: { file: 'assets/shigisan-ref.png', startCorner: 'll', nPts: 140, dilateMax: 4 },
   saruyama: { file: 'assets/minoo-ref.png', startCorner: 'ul', nPts: 140, dilateMax: 4 },
-  hanna: { file: 'assets/hanna-ref.png', markerPair: true, hannaRoute: true, nPts: 200, dilate: 4 }
+  hanna: { file: 'assets/hanna-ref.png', markerPair: true, hannaRoute: true, nPts: 200, dilate: 4 },
+  kanjo: { file: 'assets/kanjo-ref.png', kanjoLoop: true, nPts: 200, dilateMax: 6 }
 };
 
 const out = {};

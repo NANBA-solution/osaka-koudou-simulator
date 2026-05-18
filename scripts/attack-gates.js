@@ -77,6 +77,13 @@
         start: roadCenter(34.847327, 135.475892),
         goal: roadCenter(34.854785, 135.472299)
       }
+    },
+    kanjo: {
+      lap: {
+        name: '阪神環状 · 外回り',
+        start: roadCenter(34.686417, 135.497954),
+        goal: roadCenter(34.686417, 135.497954)
+      }
     }
   };
 

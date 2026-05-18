@@ -23,18 +23,34 @@ const meta = {
     desc: '🔴S→南ループ底→F（赤線どおり南へUターンして東へ）',
     start: '善根寺町付近 S',
     end: '府道8号 F'
+  },
+  kanjo: {
+    desc: '赤線抽出：外回り1周 · 阪神高速1号環状線',
+    start: 'スタート／ゴール',
+    end: '1周'
   }
 };
 
 for (const [id, pts] of Object.entries(paths)) {
   if (!pts?.length) continue;
   const pathStr = '[\n' + pts.map(([u, v]) => `          [${u},${v}]`).join(',\n') + '\n        ]';
-  const re = new RegExp(`(${id}:[\\s\\S]*?path:\\s*)\\[[\\s\\S]*?\\](?=,\\s*physicsProfile)`, 'm');
-  if (!re.test(html)) {
-    console.error('path block not found:', id);
-    continue;
+  let re;
+  if (id === 'kanjo') {
+    re =
+      /(\/\/ 阪神環状：滑らかな外回り1周[\s\S]*?path:\s*)\[[\s\S]*?\](\s*\n\s*\},?\s*\n\s*\/\/ 阪奈)/m;
+    if (!re.test(html)) {
+      console.error('path block not found:', id, '(run integrate-kanjo-index.mjs first)');
+      continue;
+    }
+    html = html.replace(re, `$1${pathStr}$2`);
+  } else {
+    re = new RegExp(`(${id}:[\\s\\S]*?path:\\s*)\\[[\\s\\S]*?\\](?=,\\s*physicsProfile)`, 'm');
+    if (!re.test(html)) {
+      console.error('path block not found:', id);
+      continue;
+    }
+    html = html.replace(re, `$1${pathStr}`);
   }
-  html = html.replace(re, `$1${pathStr}`);
 
   const [su, sv] = pts[0];
   const [fu, fv] = pts[pts.length - 1];
