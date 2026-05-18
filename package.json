@@ -1,0 +1,12 @@
+{
+  "name": "osaka-kodo-simulator",
+  "description": "大阪公道シミュレーター",
+  "scripts": {
+    "extract:paths": "node scripts/extract-red-path.mjs && node scripts/apply-extracted-paths.mjs && node scripts/build-red-path-browser.mjs",
+    "audit": "node scripts/finish-audit.mjs && node scripts/logic-audit.mjs && node scripts/sim-audit.mjs"
+  },
+  "dependencies": {
+    "jpeg-js": "^0.4.4",
+    "pngjs": "^7.0.0"
+  }
+}

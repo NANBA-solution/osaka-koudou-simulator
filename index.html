@@ -1,0 +1,4135 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0e14" />
+  <meta name="description" content="大阪公道シミュレーター — 信貴山・猿山・阪奈の走行ラインとセッティングシミュ" />
+  <title>大阪公道シミュレーター</title>
+  <link rel="manifest" href="data:application/json,%7B%22name%22%3A%22%E5%A4%A7%E9%98%AA%E5%85%AC%E9%81%93%E3%82%B7%E3%83%9F%E3%83%A5%E3%83%AC%E3%83%BC%E3%82%BF%E3%83%BC%22%2C%22short_name%22%3A%22%E5%85%AC%E9%81%93%E3%82%B7%E3%83%9F%E3%83%A5%22%2C%22start_url%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230a0e14%22%2C%22theme_color%22%3A%22%230a0e14%22%7D" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            motec: {
+              bg: '#0a0e14', panel: '#111820', border: '#1e2a38',
+              accent: '#00e5ff', warn: '#ff3d3d', ok: '#39ff14',
+              road: '#dc2626', map: '#ffffff'
+            }
+          },
+          fontFamily: { mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'] }
+        }
+      }
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; }
+    body { background: #0a0e14; font-family: 'JetBrains Mono', ui-monospace, monospace; }
+    .glow-cyan { text-shadow: 0 0 12px rgba(0,229,255,.6); }
+    .glow-red { text-shadow: 0 0 10px rgba(255,61,61,.5); }
+    .meter-bump { animation: bump .35s ease-out; }
+    @keyframes bump {
+      0% { transform: scale(1); color: inherit; }
+      40% { transform: scale(1.08); color: #39ff14; }
+      100% { transform: scale(1); }
+    }
+    .scanline::after {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.03) 2px, rgba(0,0,0,.03) 4px);
+    }
+    select, input[type=range] { accent-color: #00e5ff; }
+    #courseCanvas { touch-action: none; cursor: grab; }
+    #courseCanvas.is-panning { cursor: grabbing; }
+    .map-zoom-btn { min-width: 2.25rem; min-height: 2rem; }
+    .course-tab {
+      flex: 1; min-width: 0; padding: 0.5rem 0.35rem; font-size: 11px; line-height: 1.3;
+      border-radius: 0.375rem; border: 1px solid #1e2a38; background: #0a0e14; color: #94a3b8;
+      transition: border-color .15s, color .15s, background .15s;
+    }
+    .course-tab:hover { border-color: #334155; color: #e2e8f0; }
+    .course-tab.active {
+      border-color: #dc2626; color: #fecaca; background: rgba(220,38,38,.15);
+      font-weight: 600; box-shadow: 0 0 0 1px rgba(220,38,38,.25);
+    }
+    .course-dir-btn {
+      flex: 0 0 auto; min-width: 5.5rem; padding: 0.55rem 0.75rem; font-size: 12px; font-weight: 700;
+      border-radius: 0.375rem; border: 2px solid #334155; background: #0a0e14; color: #94a3b8;
+      letter-spacing: 0.05em; transition: all .15s;
+    }
+    .course-dir-btn:hover:not(:disabled) { border-color: #dc2626; color: #fecaca; }
+    .course-dir-btn.active-up { border-color: #f97316; color: #fed7aa; background: rgba(249,115,22,.12); }
+    .course-dir-btn.active-down { border-color: #38bdf8; color: #bae6fd; background: rgba(56,189,248,.12); }
+    .course-dir-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .parts-row { display: grid; grid-template-columns: 1.4rem 1fr; gap: 0.35rem 0.5rem; align-items: center; }
+    .parts-num { font-size: 9px; color: #64748b; text-align: right; }
+    .tune-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+    .tune-input { width: 100%; background: #0a0e14; border: 1px solid #1e2a38; border-radius: 0.25rem; padding: 0.35rem 0.5rem; font-size: 12px; color: #e2e8f0; }
+    .tune-input:focus { outline: none; border-color: #00e5ff; }
+    .tune-input:disabled { opacity: 0.45; cursor: not-allowed; }
+    details.evidence-fold > summary { cursor: pointer; user-select: none; }
+    details.evidence-fold[open] > summary { margin-bottom: 0.5rem; }
+    .view-toggle-btn { padding: 0.35rem 0.65rem; font-size: 10px; border-radius: 0.375rem; border: 1px solid #1e2a38; background: #0a0e14; color: #64748b; }
+    .view-toggle-btn.active { border-color: #dc2626; color: #fca5a5; background: rgba(220,38,38,.12); }
+    .course-map-panel {
+      background: linear-gradient(180deg, #1a1f26 0%, #111820 100%);
+      border-color: #2a3544;
+    }
+    .course-map-sheet {
+      background: #f4f4f5; border: 2px solid #d4d4d8; border-radius: 0.5rem;
+      box-shadow: inset 0 0 0 1px #fff, 0 4px 24px rgba(0,0,0,.35);
+    }
+    .course-map-meta { color: #a1a1aa; }
+    .course-map-meta strong { color: #fafafa; }
+    #courseCanvas { background: #fff !important; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  </style>
+</head>
+<body class="text-slate-300 min-h-screen antialiased">
+  <div id="app" class="max-w-7xl mx-auto p-3 md:p-5 space-y-4">
+    <!-- Header -->
+    <header class="flex flex-wrap items-center justify-between gap-3 border border-motec-border bg-motec-panel/80 rounded-lg px-4 py-3 scanline relative">
+      <div>
+        <h1 class="text-lg md:text-xl font-bold tracking-widest">
+          <span class="text-red-500">大阪公道</span><span class="text-motec-accent glow-cyan">シミュレーター</span>
+        </h1>
+        <p class="text-[10px] md:text-xs text-slate-500 uppercase tracking-[.25em]">信貴山 · 猿山 · 阪奈 · 赤線コース</p>
+      </div>
+      <div class="flex items-center gap-3 text-xs">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="wetMode" class="rounded" />
+          <span class="text-sky-400">WET μ</span>
+        </label>
+        <span id="saveIndicator" class="text-slate-600">—</span>
+      </div>
+    </header>
+
+    <div class="grid lg:grid-cols-12 gap-4">
+      <!-- Settings -->
+      <aside class="lg:col-span-3 space-y-3">
+        <section class="bg-motec-panel border border-motec-border rounded-lg p-4 space-y-3">
+          <h2 class="text-xs text-motec-accent uppercase tracking-widest border-b border-motec-border pb-2">Vehicle Base</h2>
+          <label class="block text-[10px] text-slate-500">車種プリセット</label>
+          <select id="carPreset" class="w-full bg-motec-bg border border-motec-border rounded px-2 py-1.5 text-sm"></select>
+          <p id="carSpec" class="text-[10px] text-slate-500 leading-relaxed border-t border-motec-border pt-2"></p>
+          <label class="block text-[10px] text-slate-500 mt-2">Ne (max RPM)</label>
+          <input type="range" id="rpmSlider" min="5500" max="9000" step="100" class="w-full" />
+          <span id="rpmVal" class="text-xs text-motec-accent">7000</span>
+
+          <div class="border-t border-motec-border pt-3 mt-1 space-y-2">
+            <p class="text-[10px] text-motec-accent uppercase tracking-wider">チューニング</p>
+            <label class="text-[10px] text-slate-500">車重 (kg)</label>
+            <select id="massMode" class="tune-input w-full">
+              <option value="preset">プリセット＋軽量化</option>
+              <option value="custom">任意車重を指定</option>
+            </select>
+            <input type="number" id="customMassKg" min="700" max="2200" step="5" class="tune-input w-full" placeholder="例: 1180" />
+            <p id="massHint" class="text-[9px] text-slate-600">—</p>
+            <label class="text-[10px] text-slate-500 mt-1">馬力 (PS)</label>
+            <input type="number" id="targetPowerPs" min="50" max="900" step="1" class="tune-input w-full" placeholder="目標 PS" />
+            <div class="flex items-center gap-2">
+              <input type="range" id="powerSlider" min="70" max="160" step="1" value="100" class="flex-1" />
+              <span id="powerVal" class="text-xs text-motec-accent tabular-nums w-24 text-right shrink-0">—</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="bg-motec-panel border border-motec-border rounded-lg p-4 space-y-2 max-h-[min(70vh,520px)] overflow-y-auto">
+          <h2 class="text-xs text-motec-accent uppercase tracking-widest border-b border-motec-border pb-2 sticky top-0 bg-motec-panel z-10">Parts</h2>
+          <div id="partsContainer" class="space-y-1.5"></div>
+        </section>
+
+      </aside>
+
+      <!-- Meters + Canvas -->
+      <main class="lg:col-span-9 space-y-4">
+        <!-- Lap time hero -->
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="col-span-2 md:col-span-1 bg-motec-panel border border-motec-border rounded-lg p-4 relative overflow-hidden scanline">
+            <p class="text-[10px] uppercase text-slate-500 tracking-wider">走行タイム <span class="text-slate-600">[計算]</span></p>
+            <p id="lapTime" class="text-3xl md:text-4xl font-bold text-motec-ok glow-cyan tabular-nums">—</p>
+            <p id="lapDist" class="text-[10px] text-slate-600 mt-1 tabular-nums">コース全長 —</p>
+            <p id="simSummaryMain" class="text-[10px] text-cyan-600/90 mt-1 tabular-nums leading-relaxed">—</p>
+            <p id="courseStats" class="text-[10px] text-slate-500 mt-0.5 tabular-nums leading-relaxed">—</p>
+          </div>
+          <div class="bg-motec-panel border border-motec-border rounded-lg p-3">
+            <p class="text-[10px] text-slate-500">コース最高速 <span class="text-slate-600">[計算]</span></p>
+            <p id="vMaxSeg" class="text-xl font-bold tabular-nums text-motec-accent">—</p>
+            <p id="vMaxSegNote" class="text-[9px] text-slate-600 mt-0.5">走行中の直線ピーク（山岳上限・区間長で制限）</p>
+          </div>
+          <div class="bg-motec-panel border border-motec-border rounded-lg p-3">
+            <p class="text-[10px] text-slate-500">平坦理論上限 <span class="text-slate-600">[計算]</span></p>
+            <p id="vDriveMax" class="text-xl font-bold tabular-nums">—</p>
+            <p id="vDriveMaxNote" class="text-[9px] text-slate-600 mt-0.5">—</p>
+          </div>
+          <div class="bg-motec-panel border border-motec-border rounded-lg p-3">
+            <p class="text-[10px] text-slate-500">μ 実効 / 車重</p>
+            <p id="muWeight" class="text-sm font-bold tabular-nums">—</p>
+          </div>
+        </section>
+
+        <!-- Segment meters -->
+        <section class="bg-motec-panel border border-motec-border rounded-lg p-3 max-h-72 overflow-y-auto">
+          <div class="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+            <h3 class="text-[10px] uppercase text-slate-500 tracking-widest">区間別走行（S→F）</h3>
+            <span class="text-[9px] text-slate-600">入速→出速 · 勾配 · ギア比 · ブレーキ · 時間</span>
+          </div>
+          <div id="sectorGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-[10px]"></div>
+        </section>
+
+        <!-- Canvas -->
+        <section class="course-map-panel border rounded-lg p-2 relative">
+          <div class="px-2 pt-2 pb-1 space-y-2">
+            <div class="flex gap-1" id="courseGroupTabs" role="tablist" aria-label="コース選択"></div>
+            <div class="flex gap-1 mt-1">
+              <button type="button" id="courseDirToggle" class="course-dir-btn flex-1" title="タップで上り／下り切替">↑ 上り</button>
+            </div>
+            <div class="flex flex-wrap items-center justify-between gap-2 text-[10px] course-map-meta">
+              <p id="courseDesc" class="leading-relaxed min-w-0 flex-1"></p>
+              <div class="flex items-center gap-1 shrink-0">
+                <button type="button" id="mapViewCourse" class="view-toggle-btn active" title="コース線のみ">コース</button>
+                <button type="button" id="mapViewSim" class="view-toggle-btn" title="速度・ブレーキのシミュ表示">シミュ</button>
+              </div>
+            </div>
+            <p id="courseMapStats" class="text-[10px] text-red-300/90 tabular-nums">全長 — · S—F — · — pt</p>
+            <div class="flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-500">
+              <span class="text-slate-600">ドラッグ移動 · 縮小下限=全体表示</span>
+              <span class="flex flex-wrap items-center gap-1">
+                <button type="button" id="mapFit" class="px-2 py-1 rounded border border-zinc-600 bg-zinc-900/80 hover:border-red-500 text-red-300" title="コース全体を表示">全体</button>
+                <button type="button" id="mapZoomOut" class="map-zoom-btn px-2 py-1 rounded border border-zinc-600 bg-zinc-900/80 hover:border-red-500 text-zinc-300" title="縮小（下限あり）">−</button>
+                <button type="button" id="mapZoomReset" class="px-2 py-1 rounded border border-zinc-600 bg-zinc-900/80 hover:border-red-500 text-red-300 min-w-[3rem]" title="コース全体表示（縮小下限）">全体</button>
+                <button type="button" id="mapZoomIn" class="map-zoom-btn px-2 py-1 rounded border border-zinc-600 bg-zinc-900/80 hover:border-red-500 text-zinc-300" title="拡大">＋</button>
+                <span id="mapZoomLabel" class="text-red-300 tabular-nums w-11 text-center">100%</span>
+              </span>
+            </div>
+            <p id="mapLegendSim" class="hidden flex flex-wrap gap-3 text-[10px] text-slate-500">
+              <span><span class="inline-block w-3 h-0.5 bg-red-500 align-middle"></span> 直線</span>
+              <span><span class="inline-block w-3 h-0.5 bg-amber-400 align-middle"></span> コーナ</span>
+              <span><span class="inline-block w-3 h-0.5 bg-red-400 align-middle"></span> ブレーキ</span>
+            </p>
+          </div>
+          <select id="courseSelect" class="sr-only" aria-hidden="true" tabindex="-1"></select>
+          <div class="course-map-sheet p-0.5 mx-1 mb-1">
+            <canvas id="courseCanvas" class="w-full rounded-sm bg-white block" height="520"></canvas>
+          </div>
+          <div class="grid grid-cols-3 gap-2 p-2 text-[10px] border-t border-zinc-600/60 mt-1 text-zinc-400">
+            <div><span class="text-slate-500">Wf (前輪荷重)</span><br/><span id="wfDisplay" class="text-motec-accent font-bold">—</span></div>
+            <div><span class="text-slate-500">ブレーキ温度</span><br/><span id="brakeTemp" class="font-bold">—</span></div>
+            <div><span class="text-slate-500">μ brake 実効</span><br/><span id="brakeMu" class="font-bold">—</span></div>
+          </div>
+        </section>
+
+        <section class="bg-motec-panel border border-motec-border rounded-lg p-4 text-[11px] leading-relaxed text-slate-400 font-mono">
+          <details class="evidence-fold" open>
+            <summary class="text-[10px] uppercase text-motec-accent tracking-widest mb-2 select-none">数値の根拠（エビデンス）</summary>
+            <pre id="physicsLog" class="whitespace-pre-wrap break-all text-[10px] max-h-80 overflow-y-auto mt-2"></pre>
+          </details>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="scripts/red-path-browser.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    const G = 9.80665;
+    const RHO = 1.225;
+    /** クランク出力→タイヤ接地点（トランスミッション・デフ損失） */
+    const WHEEL_POWER_EFF = 0.84;
+    /** 公道山岳路の路面・視界・安全マージン（実効μへの乗算） */
+    const TOUGE_SURFACE_MU = 0.90;
+
+    /** コース積分：時間刻み・先読み制動距離 */
+    const SIM_DT = 0.025;
+    const SIM_LOOKAHEAD_M = 480;
+
+    /** Canvas に参照PNGを重ねない（赤線コースのみ表示） */
+    const SHOW_REF_MAP_ON_CANVAS = false;
+
+    /**
+     * 数値の根拠区分
+     * catalog=メーカー公称 / law=法令 / calc=物理式 / extract=画像抽出 / config=アプリ設定 / model=チューニング係数
+     */
+    const EVIDENCE = {
+      speedLimitKmh: {
+        tier: 'law',
+        value: 60,
+        ref: '道路交通法参考（シミュには未使用）'
+      },
+      wheelPowerEff: {
+        tier: 'model',
+        value: WHEEL_POWER_EFF,
+        ref: '駆動系損失の代表値（文献値の範囲内）'
+      },
+      tires: {
+        tier: 'model',
+        ref: '乾燥公道アスファルトの実効μ（テストピーク≠山岳路の安全走行値。×路面係数0.88）'
+      },
+      tougeSurface: {
+        tier: 'model',
+        value: TOUGE_SURFACE_MU,
+        ref: '山岳公道の路面状態・視界・安全マージン（実走ピーク≠サーキット計測μ）'
+      },
+      powerCal: {
+        tier: 'catalog',
+        ref: '公称最高速に合わせたホイール出力スケール（空力モデルとメーカーvmaxの照合）'
+      },
+      tougePeak: {
+        tier: 'model',
+        ref: '山岳公道の直線ピーク上限（平坦公称vmaxとは別。連続コーナ・視界・路面）'
+      },
+      brakes: {
+        tier: 'model',
+        ref: '減速度係数の代表値（パッド・温度で変動）'
+      },
+      courses: {
+        shigisan: {
+          distanceM: {
+            tier: 'config',
+            value: 4200,
+            ref: '十三峠〜鳴川峠〜旗立山方面の走行区間概算（地図・走行ログ照合推奨）'
+          },
+          path: { tier: 'extract', ref: 'assets/shigisan-ref.png 赤線を extract-red-path.mjs でUV化' },
+          lapRef: {
+            tier: 'model',
+            minSec: 175,
+            maxSec: 255,
+            car: 'gr86',
+            tire: 'sport',
+            ref: 'GR86・sport・stock BR・μ路面0.88込みのシミュ妥当帯'
+          }
+        },
+        saruyama: {
+          distanceM: {
+            tier: 'config',
+            value: 3100,
+            ref: '府道43号（猿山〜箕面方面）走行区間概算'
+          },
+          path: { tier: 'extract', ref: 'assets/minoo-ref.png 赤線抽出' },
+          lapRef: {
+            tier: 'model',
+            minSec: 130,
+            maxSec: 215,
+            car: 'gr86',
+            tire: 'sport',
+            ref: '同上'
+          }
+        },
+        hanna: {
+          distanceM: {
+            tier: 'config',
+            value: 4400,
+            ref: '阪奈道路（府道8号・善根寺町〜交野）下り走行区間概算'
+          },
+          path: { tier: 'extract', ref: 'assets/hanna-ref.png マーカー経路抽出' },
+          lapRef: {
+            tier: 'model',
+            minSec: 145,
+            maxSec: 235,
+            car: 'gr86',
+            tire: 'sport',
+            ref: '下り基調・同上'
+          }
+        }
+      },
+      gears: {
+        catalog: { tier: 'catalog', ref: 'メーカー公表の変速比・主減速比（取扱説明書・仕様表）' },
+        model: { tier: 'model', ref: '5速典型比を公表トップギア比でスケールした推定値' }
+      },
+      cars: {
+        _default: { tier: 'catalog', ref: '各車種メーカー公表スペック（カタログ値）' }
+      }
+    };
+
+    // ─── ① タイヤマスター（乾燥アスファルト実効摩擦係数 μ）───
+    const TIRES = {
+      eco:      { name: '純正エコ / アジアン格安',              muDry: 0.75, muWet: 0.48, heatFade: false },
+      allseason:{ name: 'オールシーズン（純正相当）',           muDry: 0.78, muWet: 0.62, heatFade: false },
+      sport:    { name: 'ADVAN FLEVA / DIREZZA DZ102',         muDry: 0.84, muWet: 0.68, heatFade: false },
+      ps4s:     { name: 'PILOT SPORT 4S / POTENZA S007A',      muDry: 0.86, muWet: 0.74, heatFade: false },
+      ps5:      { name: 'PILOT SPORT 5 / POTENZA RE004',       muDry: 0.88, muWet: 0.76, heatFade: false },
+      ad09:     { name: 'ADVAN NEOVA AD09 / DIREZZA ZⅢ',      muDry: 0.92, muWet: 0.62, heatFade: true,  fadeTemp: 95, fadeMu: 0.90 },
+      re71rs:   { name: 'Falken RT615K+ / RE-71RS',            muDry: 0.94, muWet: 0.42, heatFade: true,  fadeTemp: 92, fadeMu: 0.88 },
+      a052:     { name: 'ADVAN A052 / POTENZA RE-11S',         muDry: 0.96, muWet: 0.40, heatFade: true,  fadeTemp: 90, fadeMu: 0.86 },
+      crs:      { name: 'YOKOHAMA A052RS / CRS（サーキット）', muDry: 0.98, muWet: 0.35, heatFade: true,  fadeTemp: 88, fadeMu: 0.84 }
+    };
+
+    const BRAKES = {
+      stock:    { name: '純正キャリパー＋純正パッド',              maxTemp: 400, coolRate: 1.0, fadeMu: 0.15, baseDecel: 0.72 },
+      pad_sport:{ name: 'スポーツパッド（純正ディスク）',          maxTemp: 580, coolRate: 1.1, fadeMu: 0.28, baseDecel: 0.80 },
+      sport:    { name: 'スリットローター＋スポーツパッド',        maxTemp: 650, coolRate: 1.2, fadeMu: 0.35, baseDecel: 0.85 },
+      two_piece:{ name: '2ピースローター＋強化パッド',             maxTemp: 750, coolRate: 1.8, fadeMu: 0.48, baseDecel: 0.90 },
+      big:      { name: '大径ローター＋ビッグキャリパー',          maxTemp: 850, coolRate: 2.5, fadeMu: 0.55, baseDecel: 0.95 },
+      endurance:{ name: 'エンデュランス仕様（冷却重視）',          maxTemp: 920, coolRate: 3.2, fadeMu: 0.60, baseDecel: 0.92 }
+    };
+
+    const WEIGHTS = {
+      stock:    { name: '純正車重',                deltaKg: 0,    cgFactor: 1.00 },
+      normal:   { name: 'ノーマル（±0kg）',        deltaKg: 0,    cgFactor: 1.00 },
+      light:    { name: 'ライト軽量化 (-40kg)',    deltaKg: -40,  cgFactor: 0.97 },
+      mid:      { name: 'ミドル軽量化 (-80kg)',    deltaKg: -80,  cgFactor: 0.94 },
+      hard:     { name: 'ハード軽量化 (-120kg)',   deltaKg: -120, cgFactor: 0.90 },
+      track:    { name: 'サーキット仕様 (-160kg)', deltaKg: -160, cgFactor: 0.87 }
+    };
+
+    const SUSPENSIONS = {
+      stock:    { name: '純正サス',                    cornerGrip: 1.00, muScale: 1.00 },
+      street:   { name: 'ストリートダンパー',          cornerGrip: 1.02, muScale: 1.01 },
+      coil:     { name: '車高調（スポーツ）',          cornerGrip: 1.04, muScale: 1.02 },
+      track:    { name: 'サーキットダンパー＋アライメント', cornerGrip: 1.06, muScale: 1.03 },
+      rally:    { name: '峠仕様（硬め・低重心）',      cornerGrip: 1.05, muScale: 1.02 }
+    };
+
+    const WHEELS = {
+      stock:    { name: '純正ホイール',                unsprungKg: 0,  muScale: 1.00 },
+      plus1:    { name: 'プラス1インチ軽量',           unsprungKg: -4, muScale: 1.00 },
+      forged:   { name: '鍛造18インチ',                unsprungKg: -8, muScale: 1.01 },
+      semislick:{ name: 'セミスリック径大',            unsprungKg: 2,  muScale: 1.02 }
+    };
+
+    const AEROS = {
+      none:     { name: 'ノーマル',                    cdMul: 1.00, cornerGrip: 1.00 },
+      lip:      { name: 'リップ＋リアスポイラー',      cdMul: 0.99, cornerGrip: 1.01 },
+      gt_wing:  { name: 'GTウイング＋ディフューザー',  cdMul: 1.02, cornerGrip: 1.03 },
+      time_attack:{ name: 'タイムアタック（下押し）',  cdMul: 1.05, cornerGrip: 1.05 }
+    };
+
+    const DIFFS = {
+      open:     { name: 'オープンデフ（純正）',        lrMul: 1.00, accelMul: 1.00 },
+      torsen:   { name: 'トルセンLSD',                 lrMul: 1.03, accelMul: 1.02 },
+      one_way:  { name: 'ワンウェイLSD',               lrMul: 1.05, accelMul: 1.03 },
+      two_way:  { name: 'ツーウェイLSD',               lrMul: 1.04, accelMul: 1.025 }
+    };
+
+    const INTAKES = {
+      stock:    { name: '純正吸排気',                  powerMul: 1.00 },
+      intake:   { name: 'インテーク＋エアクリ',        powerMul: 1.03 },
+      exhaust:  { name: 'フルエキゾースト',            powerMul: 1.05 },
+      header:   { name: 'ヘッダー＋触媒レス',          powerMul: 1.08 },
+      turbo:    { name: 'ターボ／スーパーチャージャー', powerMul: 1.35 },
+      na_build: { name: 'NAビルド（高圧縮＋CAM）',     powerMul: 1.15 }
+    };
+
+    const COOLINGS = {
+      stock:    { name: '純正冷却',                    coolMul: 1.0, brakeCoolMul: 1.0 },
+      oil_cool: { name: 'オイルクーラー',              coolMul: 1.1, brakeCoolMul: 1.05 },
+      brake_duct:{ name: 'ブレーキダクト',             coolMul: 1.0, brakeCoolMul: 1.25 },
+      full:     { name: 'ラジエター＋オイル＋ダクト',  coolMul: 1.15, brakeCoolMul: 1.35 }
+    };
+
+    const PART_CATALOG = [
+      { key: 'tireKey', label: 'タイヤ', data: TIRES, stateKey: 'tireKey' },
+      { key: 'brakeKey', label: 'ブレーキ', data: BRAKES, stateKey: 'brakeKey' },
+      { key: 'weightKey', label: '軽量化', data: WEIGHTS, stateKey: 'weightKey' },
+      { key: 'suspKey', label: '足回り', data: SUSPENSIONS, stateKey: 'suspKey' },
+      { key: 'wheelKey', label: 'ホイール', data: WHEELS, stateKey: 'wheelKey' },
+      { key: 'aeroKey', label: 'エアロ', data: AEROS, stateKey: 'aeroKey' },
+      { key: 'diffKey', label: 'LSD', data: DIFFS, stateKey: 'diffKey' },
+      { key: 'intakeKey', label: '吸排気', data: INTAKES, stateKey: 'intakeKey' },
+      { key: 'coolKey', label: '冷却', data: COOLINGS, stateKey: 'coolKey' }
+    ];
+
+    const PS_TO_KW = 0.73549875;
+
+    /** タイヤ外径から転がり周長[m]（公称寸法） */
+    function tireCircumferenceM(width, aspect, rimInch) {
+      const diaMm = rimInch * 25.4 + 2 * width * (aspect / 100);
+      return Math.PI * diaMm / 1000;
+    }
+
+    /** 5速MTの典型比からトップに合わせてスケール（車種別 gears[] で上書き可） */
+    function defaultGearbox(gearTop) {
+      const refTop = 0.783;
+      const ref = [3.587, 2.099, 1.286, 1.000, refTop];
+      const k = gearTop / refTop;
+      return ref.map((r) => Math.round(r * k * 1000) / 1000);
+    }
+
+    function mkCar(spec) {
+      const tire = spec.tire;
+      const tireCircumM = tireCircumferenceM(tire[0], tire[1], tire[2]);
+      const finalDrive = spec.finalDrive;
+      const gears = spec.gears || defaultGearbox(spec.gearTop);
+      const gearTop = gears[gears.length - 1];
+      const gearRatioTop = finalDrive * gearTop;
+      const gearTier = spec.gears ? 'catalog' : 'model';
+      const gearRef = spec.gearRef || EVIDENCE.gears[gearTier]?.ref;
+      return {
+        ...spec,
+        tire,
+        tireCircumM,
+        finalDrive,
+        gears,
+        gearTop,
+        gearRatioTop,
+        gearTier,
+        gearRef,
+        vPer1000rpm: (60 * tireCircumM) / gearRatioTop,
+        C: tireCircumM,
+        i: finalDrive,
+        igTop: gearTop
+      };
+    }
+
+    const CAR_PRESETS = {
+      ae86: mkCar({
+        name: 'AE86 Trueno GT-APEX', baseKg: 950,
+        powerKw: 97, powerRpm: 7600, torqueNm: 150, torqueRpm: 6400,
+        gears: [3.587, 2.099, 1.286, 1.000, 0.783],
+        gearRef: 'Toyota 4A-GE 5MT 公表',
+        finalDrive: 4.300, gearTop: 0.783, tire: [185, 60, 14],
+        Cd: 0.38, A: 1.85, Crr: 0.015, vmaxCatalog: 200,
+        L: 2.40, Lr: 1.10, Hg: 0.48, NeDefault: 7600, NeMax: 8000
+      }),
+      ef9: mkCar({
+        name: 'Civic SiR EF9', baseKg: 1000,
+        powerKw: 119, powerRpm: 7600, torqueNm: 158, torqueRpm: 7300,
+        gears: [3.250, 1.944, 1.350, 1.071, 0.787],
+        gearRef: 'Honda B16A 5MT 公表',
+        finalDrive: 4.400, gearTop: 0.787, tire: [195, 60, 14],
+        Cd: 0.31, A: 1.70, Crr: 0.014, vmaxCatalog: 220,
+        L: 2.40, Lr: 1.13, Hg: 0.49, NeDefault: 7800, NeMax: 8200
+      }),
+      eg6: mkCar({
+        name: 'Civic SiR EG6', baseKg: 1030,
+        powerKw: 129, powerRpm: 8000, torqueNm: 178, torqueRpm: 7000,
+        gears: [3.230, 1.900, 1.360, 1.050, 0.800],
+        gearRef: 'Honda B16B 5MT 公表',
+        finalDrive: 4.266, gearTop: 0.800, tire: [195, 55, 15],
+        Cd: 0.31, A: 1.72, Crr: 0.014, vmaxCatalog: 235,
+        L: 2.42, Lr: 1.14, Hg: 0.49, NeDefault: 8000, NeMax: 8200
+      }),
+      ek9: mkCar({
+        name: 'Civic Type-R EK9', baseKg: 1080,
+        powerKw: 133, powerRpm: 8200, torqueNm: 185, torqueRpm: 7300,
+        gears: [3.250, 1.900, 1.320, 1.030, 0.795],
+        gearRef: 'Honda B16B 5MT Type-R 公表',
+        finalDrive: 4.400, gearTop: 0.795, tire: [195, 55, 15],
+        Cd: 0.32, A: 1.78, Crr: 0.014, vmaxCatalog: 240,
+        L: 2.45, Lr: 1.15, Hg: 0.50, NeDefault: 8200, NeMax: 8600
+      }),
+      na6ce: mkCar({
+        name: 'Roadster NA6CE', baseKg: 950,
+        powerKw: 97, powerRpm: 7200, torqueNm: 129, torqueRpm: 5500,
+        gears: [4.838, 2.805, 1.531, 1.000, 0.806],
+        gearRef: 'Mazda NA 5MT 公表',
+        finalDrive: 4.300, gearTop: 0.806, tire: [185, 60, 14],
+        Cd: 0.34, A: 1.65, Crr: 0.014, vmaxCatalog: 195,
+        L: 2.26, Lr: 1.05, Hg: 0.47, NeDefault: 7200, NeMax: 7500
+      }),
+      fc3s: mkCar({
+        name: 'RX-7 FC3S', baseKg: 1200,
+        powerKw: 151, powerRpm: 7500, torqueNm: 217, torqueRpm: 4500,
+        gears: [3.927, 2.294, 1.531, 1.000, 0.725],
+        gearRef: 'Mazda 13B 5MT 公表',
+        finalDrive: 3.909, gearTop: 0.725, tire: [205, 60, 15],
+        Cd: 0.33, A: 1.80, Crr: 0.014, vmaxCatalog: 240,
+        L: 2.42, Lr: 1.12, Hg: 0.47, NeDefault: 7500, NeMax: 8000
+      }),
+      fd3s: mkCar({
+        name: 'RX-7 FD3S Type-R', baseKg: 1280,
+        powerKw: 188, powerRpm: 8000, torqueNm: 294, torqueRpm: 5500,
+        gears: [3.483, 2.015, 1.391, 1.000, 0.719],
+        gearRef: 'Mazda 13B-REW 5MT 公表',
+        finalDrive: 3.909, gearTop: 0.719, tire: [255, 45, 16],
+        Cd: 0.31, A: 1.88, Crr: 0.013, vmaxCatalog: 250,
+        L: 2.35, Lr: 1.08, Hg: 0.45, NeDefault: 8000, NeMax: 8500
+      }),
+      s15: mkCar({
+        name: 'Silvia S15 Spec-R', baseKg: 1280,
+        powerKw: 186, powerRpm: 7200, torqueNm: 275, torqueRpm: 4400,
+        gears: [3.076, 1.825, 1.296, 1.029, 0.756],
+        gearRef: 'Nissan SR20DET 5MT 公表',
+        finalDrive: 3.692, gearTop: 0.756, tire: [245, 40, 17],
+        Cd: 0.32, A: 1.90, Crr: 0.013, vmaxCatalog: 250,
+        L: 2.52, Lr: 1.18, Hg: 0.48, NeDefault: 7200, NeMax: 7800
+      }),
+      s2000: mkCar({
+        name: 'S2000 AP1', baseKg: 1270,
+        powerKw: 176, powerRpm: 9000, torqueNm: 208, torqueRpm: 7500,
+        gears: [3.137, 2.050, 1.481, 1.160, 0.943, 0.787],
+        gearRef: 'Honda F20C 6MT 公表',
+        finalDrive: 4.100, gearTop: 0.787, tire: [215, 45, 17],
+        Cd: 0.34, A: 1.82, Crr: 0.013, vmaxCatalog: 240,
+        L: 2.40, Lr: 1.12, Hg: 0.46, NeDefault: 8800, NeMax: 9000
+      }),
+      z33: mkCar({
+        name: 'Fairlady Z Z33', baseKg: 1440,
+        powerKw: 206, powerRpm: 6800, torqueNm: 309, torqueRpm: 4800,
+        gears: [3.794, 2.324, 1.624, 1.271, 1.000, 0.775],
+        gearRef: 'Nissan VQ35DE 6MT 公表',
+        finalDrive: 3.692, gearTop: 0.775, tire: [225, 45, 18],
+        Cd: 0.31, A: 2.05, Crr: 0.013, vmaxCatalog: 250,
+        L: 2.65, Lr: 1.28, Hg: 0.48, NeDefault: 6800, NeMax: 7200
+      }),
+      jza80: mkCar({
+        name: 'Supra JZA80 RZ', baseKg: 1580,
+        powerKw: 206, powerRpm: 6800, torqueNm: 333, torqueRpm: 4800,
+        gears: [3.827, 2.360, 1.685, 1.312, 1.000, 0.758],
+        gearRef: 'Toyota V160 6MT 公表',
+        finalDrive: 3.133, gearTop: 0.758, tire: [235, 40, 17],
+        Cd: 0.33, A: 2.00, Crr: 0.013, vmaxCatalog: 250,
+        L: 2.60, Lr: 1.22, Hg: 0.47, NeDefault: 6800, NeMax: 7200
+      }),
+      r32: mkCar({
+        name: 'Skyline GT-R R32', baseKg: 1430,
+        powerKw: 206, powerRpm: 7800, torqueNm: 353, torqueRpm: 4400,
+        gears: [3.214, 1.925, 1.362, 1.086, 0.767],
+        gearRef: 'Nissan RB26DETT 5MT 公表',
+        finalDrive: 3.545, gearTop: 0.767, tire: [225, 55, 16],
+        Cd: 0.35, A: 2.00, Crr: 0.013, vmaxCatalog: 250,
+        L: 2.61, Lr: 1.24, Hg: 0.46, NeDefault: 7800, NeMax: 8200
+      }),
+      r34: mkCar({
+        name: 'Skyline GT-R R34 V-Spec', baseKg: 1560,
+        powerKw: 206, powerRpm: 7800, torqueNm: 400, torqueRpm: 4400,
+        gears: [3.214, 1.925, 1.362, 1.086, 0.756],
+        gearRef: 'Nissan Getrag 5MT 公表',
+        finalDrive: 3.545, gearTop: 0.756, tire: [245, 40, 18],
+        Cd: 0.34, A: 2.02, Crr: 0.013, vmaxCatalog: 250,
+        L: 2.66, Lr: 1.26, Hg: 0.46, NeDefault: 7800, NeMax: 8200
+      }),
+      evo6: mkCar({
+        name: 'Lancer Evo VI CP9A', baseKg: 1360,
+        powerKw: 206, powerRpm: 7500, torqueNm: 373, torqueRpm: 4500,
+        gears: [2.962, 1.909, 1.392, 1.031, 0.821],
+        gearRef: 'Mitsubishi 4G63 5MT 公表',
+        finalDrive: 4.529, gearTop: 0.821, tire: [205, 60, 15],
+        Cd: 0.36, A: 1.95, Crr: 0.014, vmaxCatalog: 250,
+        L: 2.51, Lr: 1.20, Hg: 0.49, NeDefault: 7500, NeMax: 8000
+      }),
+      gc8: mkCar({
+        name: 'Impreza WRX STI GC8', baseKg: 1340,
+        powerKw: 206, powerRpm: 7600, torqueNm: 363, torqueRpm: 4900,
+        gears: [3.166, 1.882, 1.296, 0.972, 0.825],
+        gearRef: 'Subaru 5MT STI 公表',
+        finalDrive: 4.444, gearTop: 0.825, tire: [205, 50, 16],
+        Cd: 0.36, A: 1.96, Crr: 0.014, vmaxCatalog: 250,
+        L: 2.52, Lr: 1.22, Hg: 0.50, NeDefault: 7600, NeMax: 8000
+      }),
+      dc2: mkCar({
+        name: 'Integra Type-R DC2', baseKg: 1080,
+        powerKw: 147, powerRpm: 8000, torqueNm: 186, torqueRpm: 7500,
+        gears: [3.266, 1.888, 1.330, 1.042, 0.771],
+        gearRef: 'Honda B18C 5MT Type-R 公表',
+        finalDrive: 4.266, gearTop: 0.771, tire: [195, 55, 15],
+        Cd: 0.31, A: 1.76, Crr: 0.014, vmaxCatalog: 235,
+        L: 2.43, Lr: 1.14, Hg: 0.49, NeDefault: 8000, NeMax: 8600
+      }),
+      sw20: mkCar({
+        name: 'MR2 GT-S SW20', baseKg: 1220,
+        powerKw: 132, powerRpm: 7000, torqueNm: 200, torqueRpm: 5000,
+        gears: [3.167, 1.872, 1.309, 0.963, 0.766],
+        gearRef: 'Toyota 3S-GTE 5MT 公表',
+        finalDrive: 4.312, gearTop: 0.766, tire: [195, 55, 15],
+        Cd: 0.33, A: 1.78, Crr: 0.014, vmaxCatalog: 225,
+        L: 2.28, Lr: 1.02, Hg: 0.44, NeDefault: 7000, NeMax: 7500
+      }),
+      s14: mkCar({
+        name: 'Silvia S14 Spec-R', baseKg: 1320,
+        powerKw: 184, powerRpm: 6400, torqueNm: 275, torqueRpm: 4800,
+        gears: [3.057, 1.815, 1.286, 1.028, 0.752],
+        gearRef: 'Nissan SR20DET 5MT 公表',
+        finalDrive: 3.692, gearTop: 0.752, tire: [235, 45, 17],
+        Cd: 0.32, A: 1.92, Crr: 0.013, vmaxCatalog: 250,
+        L: 2.50, Lr: 1.17, Hg: 0.48, NeDefault: 6400, NeMax: 7000
+      }),
+      rps13: mkCar({
+        name: '180SX Type-X', baseKg: 1290,
+        powerKw: 162, powerRpm: 6000, torqueNm: 260, torqueRpm: 4800,
+        gears: [3.057, 1.815, 1.286, 1.028, 0.756],
+        gearRef: 'Nissan SR20DET 5MT 公表',
+        finalDrive: 3.692, gearTop: 0.756, tire: [225, 50, 16],
+        Cd: 0.33, A: 1.90, Crr: 0.013, vmaxCatalog: 245,
+        L: 2.48, Lr: 1.16, Hg: 0.48, NeDefault: 6000, NeMax: 6800
+      }),
+      st205: mkCar({
+        name: 'Celica GT-Four ST205', baseKg: 1360,
+        powerKw: 176, powerRpm: 6500, torqueNm: 324, torqueRpm: 4400,
+        gears: [3.357, 2.000, 1.260, 0.928, 0.762],
+        gearRef: 'Toyota 3S-GTE 5MT WRC homologation 公表',
+        finalDrive: 3.933, gearTop: 0.762, tire: [205, 55, 16],
+        Cd: 0.35, A: 1.94, Crr: 0.014, vmaxCatalog: 250,
+        L: 2.50, Lr: 1.20, Hg: 0.49, NeDefault: 6500, NeMax: 7200
+      }),
+      jzx100: mkCar({
+        name: 'Chaser JZX100 Tourer V', baseKg: 1580,
+        powerKw: 206, powerRpm: 6200, torqueNm: 378, torqueRpm: 4400,
+        gears: [3.724, 2.246, 1.539, 1.000, 0.808],
+        gearRef: 'Toyota 1JZ-GTE 5MT 公表',
+        finalDrive: 3.727, gearTop: 0.808, tire: [225, 50, 16],
+        Cd: 0.33, A: 2.02, Crr: 0.013, vmaxCatalog: 250,
+        L: 2.68, Lr: 1.30, Hg: 0.50, NeDefault: 6200, NeMax: 6800
+      }),
+      nsx_na1: mkCar({
+        name: 'NSX NA1', baseKg: 1350,
+        powerKw: 206, powerRpm: 7300, torqueNm: 304, torqueRpm: 5500,
+        gears: [3.267, 1.880, 1.361, 1.062, 0.803],
+        gearRef: 'Honda C30A 5MT 公表',
+        finalDrive: 4.176, gearTop: 0.803, tire: [215, 45, 16],
+        Cd: 0.30, A: 1.86, Crr: 0.013, vmaxCatalog: 270,
+        L: 2.45, Lr: 1.10, Hg: 0.44, NeDefault: 7300, NeMax: 8000
+      }),
+      evo9: mkCar({
+        name: 'Lancer Evo IX MR', baseKg: 1465,
+        powerKw: 206, powerRpm: 6500, torqueNm: 392, torqueRpm: 3500,
+        gears: [2.928, 1.894, 1.367, 1.020, 0.809],
+        gearRef: 'Mitsubishi 4G63 5MT 公表',
+        finalDrive: 4.529, gearTop: 0.809, tire: [235, 45, 17],
+        Cd: 0.36, A: 1.98, Crr: 0.014, vmaxCatalog: 250,
+        L: 2.52, Lr: 1.21, Hg: 0.50, NeDefault: 6500, NeMax: 7200
+      }),
+      va_sti: mkCar({
+        name: 'WRX STI VA', baseKg: 1520,
+        powerKw: 228, powerRpm: 6400, torqueNm: 431, torqueRpm: 3300, torqueRpmEnd: 8000,
+        gears: [3.636, 2.375, 1.761, 1.346, 1.062, 0.791],
+        gearRef: 'Subaru EJ25 6MT 公表',
+        finalDrive: 4.111, gearTop: 0.791, tire: [245, 40, 18],
+        Cd: 0.34, A: 2.04, Crr: 0.013, vmaxCatalog: 250,
+        L: 2.58, Lr: 1.26, Hg: 0.50, NeDefault: 6400, NeMax: 7200
+      }),
+      fk8: mkCar({
+        name: 'Civic Type-R FK8', baseKg: 1380,
+        powerKw: 235, powerRpm: 7000, torqueNm: 400, torqueRpm: 2500, torqueRpmEnd: 4500,
+        gears: [3.266, 2.043, 1.413, 1.073, 0.877, 0.746],
+        gearRef: 'Honda K20C 6MT 公表',
+        finalDrive: 4.111, gearTop: 0.746, tire: [245, 30, 20],
+        Cd: 0.32, A: 1.92, Crr: 0.013, vmaxCatalog: 272,
+        L: 2.48, Lr: 1.18, Hg: 0.48, NeDefault: 7000, NeMax: 7500
+      }),
+      fl5: mkCar({
+        name: 'Civic Type-R FL5', baseKg: 1430,
+        powerKw: 243, powerRpm: 6500, torqueNm: 420, torqueRpm: 2600, torqueRpmEnd: 4000,
+        gears: [3.266, 1.880, 1.286, 0.971, 0.806, 0.692],
+        gearRef: 'Honda K20C 6MT FL5 公表',
+        finalDrive: 4.350, gearTop: 0.692, tire: [265, 35, 19],
+        Cd: 0.31, A: 1.94, Crr: 0.013, vmaxCatalog: 275,
+        L: 2.50, Lr: 1.19, Hg: 0.48, NeDefault: 6500, NeMax: 7200
+      }),
+      gry: mkCar({
+        name: 'GR Yaris', baseKg: 1280,
+        powerKw: 200, powerRpm: 6500, torqueNm: 370, torqueRpm: 3000, torqueRpmEnd: 4600,
+        gears: [3.538, 2.056, 1.370, 1.030, 0.844, 0.691],
+        gearRef: 'Toyota G16E-GTS 6MT iMT 公表',
+        finalDrive: 4.461, gearTop: 0.691, tire: [225, 40, 18],
+        Cd: 0.33, A: 1.88, Crr: 0.013, vmaxCatalog: 232,
+        L: 2.46, Lr: 1.20, Hg: 0.48, NeDefault: 6500, NeMax: 7200
+      }),
+      nd2: mkCar({
+        name: 'Roadster ND2', baseKg: 1075,
+        powerKw: 135, powerRpm: 7000, torqueNm: 207, torqueRpm: 4000,
+        gears: [5.087, 2.991, 2.035, 1.594, 1.325, 1.000],
+        gearRef: 'Mazda Skyactiv-G 6MT 公表',
+        finalDrive: 2.866, gearTop: 1.000, tire: [195, 50, 16],
+        Cd: 0.34, A: 1.68, Crr: 0.014, vmaxCatalog: 228,
+        L: 2.30, Lr: 1.06, Hg: 0.47, NeDefault: 7000, NeMax: 7500
+      }),
+      z34: mkCar({
+        name: 'Fairlady Z RZ34', baseKg: 1720,
+        powerKw: 298, powerRpm: 6400, torqueNm: 475, torqueRpm: 1600, torqueRpmEnd: 4800,
+        gears: [4.231, 2.525, 1.741, 1.362, 1.061, 0.825, 0.650, 0.571, 0.787],
+        gearRef: 'Nissan VR30DDTT 9MT（シミュは全段使用）',
+        finalDrive: 3.692, gearTop: 0.787, tire: [255, 40, 19],
+        Cd: 0.30, A: 2.12, Crr: 0.013, vmaxCatalog: 300,
+        L: 2.68, Lr: 1.30, Hg: 0.48, NeDefault: 6400, NeMax: 7000
+      }),
+      r35: mkCar({
+        name: 'GT-R R35', baseKg: 1740,
+        powerKw: 419, powerRpm: 6800, torqueNm: 588, torqueRpm: 3300, torqueRpmEnd: 5800,
+        gears: [3.540, 2.134, 1.519, 1.197, 0.959, 0.779],
+        gearRef: 'Nissan GR6 6速相当（ATをMT近似）',
+        finalDrive: 3.700, gearTop: 0.779, tire: [255, 40, 20],
+        Cd: 0.32, A: 2.15, Crr: 0.013, vmaxCatalog: 315,
+        L: 2.70, Lr: 1.32, Hg: 0.47, NeDefault: 6800, NeMax: 7200
+      }),
+      gr86: mkCar({
+        name: 'GR86 / BRZ ZD8', baseKg: 1275,
+        powerKw: 173, powerRpm: 7000, torqueNm: 250, torqueRpm: 3700, torqueRpmEnd: 6400,
+        gears: [3.626, 2.189, 1.541, 1.213, 1.000, 0.767],
+        gearRef: 'Toyota GR86 6MT 2024仕様表（228hp/184lb-ft US公表）',
+        finalDrive: 4.100, gearTop: 0.767, tire: [215, 40, 18],
+        Cd: 0.29, A: 2.05, Crr: 0.013, vmaxCatalog: 226,
+        L: 2.57, Lr: 1.25, Hg: 0.47, NeDefault: 7400, NeMax: 7800
+      })
+    };
+
+    // ─── コース幾何（弧長 fraction で Canvas・物理・勾配を一本化）───
+    function buildArcTable(path) {
+      const cum = [0];
+      for (let i = 0; i < path.length - 1; i++) {
+        cum.push(cum[cum.length - 1] + Math.hypot(path[i + 1][0] - path[i][0], path[i + 1][1] - path[i][1]));
+      }
+      const total = cum[cum.length - 1] || 1;
+      return { cum, total };
+    }
+
+    function uvAtArcFrac(path, arc, f) {
+      f = Math.max(0, Math.min(1, f));
+      const target = f * arc.total;
+      let i = 0;
+      while (i < arc.cum.length - 2 && arc.cum[i + 1] < target - 1e-9) i++;
+      const segL = arc.cum[i + 1] - arc.cum[i] || 1;
+      const t = (target - arc.cum[i]) / segL;
+      return [
+        path[i][0] + (path[i + 1][0] - path[i][0]) * t,
+        path[i][1] + (path[i + 1][1] - path[i][1]) * t
+      ];
+    }
+
+    /** 弧長区間から R・タイプを実パス形状から算出（ノイズ抑制・公道向け） */
+    function analyzePathSegment(path, arc, f0, f1, totalMeters, course) {
+      const samples = 36;
+      let prev = uvAtArcFrac(path, arc, f0);
+      let lenM = 0;
+      let heading = null;
+      let turn = 0;
+      let dvSum = 0;
+      for (let k = 1; k <= samples; k++) {
+        const f = f0 + (f1 - f0) * (k / samples);
+        const p = uvAtArcFrac(path, arc, f);
+        const du = p[0] - prev[0];
+        const dv = p[1] - prev[1];
+        lenM += Math.hypot(du, dv) * (totalMeters / arc.total);
+        dvSum += dv;
+        const h = Math.atan2(dv, du);
+        if (heading !== null) {
+          let dh = h - heading;
+          while (dh > Math.PI) dh -= 2 * Math.PI;
+          while (dh < -Math.PI) dh += 2 * Math.PI;
+          turn += Math.abs(dh);
+        }
+        heading = h;
+        prev = p;
+      }
+      const cornerThresh = course?.cornerThresh ?? 78;
+      const R = turn > 0.08
+        ? Math.max(20, Math.min(lenM / turn, 150))
+        : 9999;
+      const type = R < cornerThresh ? 'corner' : 'straight';
+      return { lenM, R: Math.round(R), type };
+    }
+
+    function pathSegmentLengthM(course, f0, f1) {
+      const arc = course.arc || buildArcTable(course.path);
+      return analyzePathSegment(course.path, arc, f0, f1, course.totalMeters, course).lenM;
+    }
+
+    /** パス上の局所曲率半径 [m] */
+    function localRadiusAtFrac(course, f, window = 0.01) {
+      const arc = course.arc || buildArcTable(course.path);
+      const f0 = Math.max(0, f - window);
+      const f1 = Math.min(1, f + window);
+      return analyzePathSegment(course.path, arc, f0, f1, course.totalMeters, {
+        ...course,
+        cornerThresh: 99999
+      }).R;
+    }
+
+    /**
+     * 曲率変化で区間を自動分割（直線／コーナをマージ・分割して物理距離に整合）
+     */
+    function generateAdaptivePhysicsProfile(course) {
+      const path = course.path;
+      if (!path?.length) return [];
+      const arc = buildArcTable(path);
+      course.arc = arc;
+      const totalM = course.totalMeters || 4000;
+      const thresh = course.cornerThresh ?? 78;
+      const minLen = course.minSegmentM ?? 30;
+      const maxLen = course.maxSegmentM ?? 220;
+      const nSamples = Math.max(80, Math.min(200, Math.round(totalM / 18)));
+
+      const samples = [];
+      for (let i = 0; i <= nSamples; i++) {
+        const f = i / nSamples;
+        const R = localRadiusAtFrac(course, f, 0.011);
+        samples.push({ f, R, type: R < thresh ? 'corner' : 'straight' });
+      }
+
+      let runs = [];
+      let cur = { type: samples[0].type, f0: 0, f1: samples[0].f, R: samples[0].R };
+      for (let i = 1; i < samples.length; i++) {
+        const s = samples[i];
+        if (s.type !== cur.type) {
+          cur.f1 = s.f;
+          runs.push(cur);
+          cur = { type: s.type, f0: s.f, f1: s.f, R: s.R };
+        } else if (s.type === 'corner') {
+          cur.R = Math.min(cur.R, s.R);
+          cur.f1 = s.f;
+        } else {
+          cur.f1 = s.f;
+        }
+      }
+      cur.f1 = 1;
+      runs.push(cur);
+
+      const withLen = runs.map((r) => ({
+        ...r,
+        len: pathSegmentLengthM(course, r.f0, r.f1)
+      }));
+
+      for (let pass = 0; pass < 40; pass++) {
+        let merged = false;
+        for (let i = 0; i < withLen.length; i++) {
+          if (withLen[i].len >= minLen || withLen.length <= 8) continue;
+          const j = i < withLen.length - 1 ? i + 1 : i - 1;
+          if (j < 0) break;
+          const a = withLen[i];
+          const b = withLen[j];
+          const keep = {
+            type: a.type === 'corner' || b.type === 'corner' ? 'corner' : 'straight',
+            f0: Math.min(a.f0, b.f0),
+            f1: Math.max(a.f1, b.f1),
+            R: Math.min(a.R ?? 9999, b.R ?? 9999)
+          };
+          keep.len = pathSegmentLengthM(course, keep.f0, keep.f1);
+          withLen[Math.min(i, j)] = keep;
+          withLen.splice(Math.max(i, j), 1);
+          merged = true;
+          break;
+        }
+        if (!merged) break;
+      }
+
+      const split = [];
+      for (const r of withLen) {
+        if (r.len <= maxLen) {
+          split.push(r);
+          continue;
+        }
+        const mid = (r.f0 + r.f1) * 0.5;
+        split.push({ ...r, f1: mid, len: pathSegmentLengthM(course, r.f0, mid) });
+        split.push({ ...r, f0: mid, f1: r.f1, len: pathSegmentLengthM(course, mid, r.f1) });
+      }
+
+      const prefix = (course.refSource || 'X').slice(0, 2).toUpperCase();
+      const sumLen = split.reduce((a, r) => a + r.len, 0) || 1;
+      return split.map((r, i) => ({
+        id: prefix + String(i + 1).padStart(2, '0'),
+        share: r.len / sumLen,
+        type: r.type,
+        pathFrom: r.f0,
+        pathTo: r.f1,
+        ...(r.type === 'corner' ? { R: Math.round(r.R) } : {})
+      }));
+    }
+
+    /** 赤線パスから区間プロファイルを自動生成 */
+    function generatePhysicsProfileFromPath(course) {
+      if (course.usePrecisionSim !== false) {
+        return generateAdaptivePhysicsProfile(course);
+      }
+      const path = course.path;
+      if (!path?.length) return [];
+      const arc = buildArcTable(path);
+      const n = Math.max(
+        10,
+        Math.min(24, course.profileSegmentCount ?? Math.round(12 + (course.totalMeters || 4000) / 380))
+      );
+      const prefix = (course.refSource || 'X').slice(0, 2).toUpperCase();
+      const profile = [];
+      for (let i = 0; i < n; i++) {
+        const f0 = i / n;
+        const f1 = (i + 1) / n;
+        const geo = analyzePathSegment(path, arc, f0, f1, course.totalMeters, course);
+        profile.push({
+          id: prefix + String(i + 1).padStart(2, '0'),
+          share: 1 / n,
+          type: geo.type,
+          ...(geo.type === 'corner' ? { R: geo.R } : {})
+        });
+      }
+      return profile;
+    }
+
+    /** 先読み：前方のコーナ手前速度（複数コーナを考慮） */
+    function scanAheadCornerLimits(si, segments, mu, logic, course, gripMul) {
+      const hits = [];
+      let dist = 0;
+      for (let j = si + 1; j < segments.length && dist < SIM_LOOKAHEAD_M; j++) {
+        const sj = segments[j];
+        dist += sj.len;
+        if (sj.type === 'corner') {
+          hits.push({
+            dist,
+            vLim: cornerLimitMsForSeg(mu, sj, logic, course, gripMul)
+          });
+          if (hits.length >= 3) break;
+        }
+      }
+      return hits;
+    }
+
+    function brakeTargetFromAhead(vMs, distRem, aBrake, ahead) {
+      let target = null;
+      for (const h of ahead) {
+        if (h.dist > distRem + 0.5) continue;
+        const dNeed = (vMs * vMs - h.vLim * h.vLim) / (2 * Math.max(aBrake, 0.8));
+        if (dNeed >= distRem - 0.15) {
+          target = target == null ? h.vLim : Math.min(target, h.vLim);
+        }
+      }
+      return target;
+    }
+
+    /**
+     * 直線精密積分：勾配をパス沿いにサンプリング、出力上限・先読み制動
+     */
+    function integrateStraightPrecision(veh, v0, lenM, ctx) {
+      const {
+        course, f0, f1, mu, neSlider, aBrake, ahead, gripMul, logic
+      } = ctx;
+      if (!lenM || lenM < 0.05) {
+        return { t: 0, v: v0, peak: v0, brakeDist: 0, gearHist: emptyGearHist(veh) };
+      }
+
+      let v = v0;
+      let dist = 0;
+      let t = 0;
+      let peak = v0;
+      let brakeDist = 0;
+      const dt = SIM_DT;
+      const aDec = Math.max(aBrake, 0.8);
+      const rpmCap = Math.min(veh.NeMax, neSlider);
+      const hist = emptyGearHist(veh);
+      const ceilMs = (course.peakCeilingKmh ?? 999) / 3.6;
+
+      while (dist < lenM - 0.02) {
+        const distRem = lenM - dist;
+        const frac = dist / lenM;
+        const f = f0 + (f1 - f0) * frac;
+        const fLo = Math.max(f0, f - 0.004);
+        const fHi = Math.min(f1, f + 0.004);
+        const theta = segmentGradeFromPath(course, fLo, fHi);
+        let vMax = segmentStraightVmaxMs(veh, neSlider, theta, course);
+        vMax = Math.min(vMax, ceilMs);
+
+        let vLim = ctx.vLimNext;
+        const aheadT = brakeTargetFromAhead(v, distRem, aDec, ahead);
+        if (aheadT != null) vLim = aheadT;
+        if (vLim != null && vLim >= vMax - 0.35) vLim = null;
+
+        const mustBrake =
+          vLim != null &&
+          v > vLim + 0.15 &&
+          (v * v - vLim * vLim) / (2 * aDec) >= distRem - 0.06;
+
+        let vNew;
+        if (mustBrake) {
+          vNew = Math.max(vLim, v - aDec * dt);
+        } else {
+          const gi = pickGearForAccel(veh, v, rpmCap);
+          hist[gi] += dt;
+          const a = maxAccelMs2(veh, mu, v, neSlider, theta);
+          vNew = Math.min(v + a * dt, vMax);
+        }
+
+        const dStep = Math.min(distRem, Math.max((v + vNew) * 0.5 * dt, 0.015));
+        if (dStep <= 0) break;
+        t += dStep / Math.max((v + vNew) * 0.5, 0.5);
+        dist += dStep;
+        if (mustBrake) brakeDist += dStep;
+        v = vNew;
+        peak = Math.max(peak, v);
+      }
+      return { t, v, peak, brakeDist, gearHist: hist };
+    }
+
+    function getCourseEvidence(course) {
+      const key = course.refSource || course.refSourceKey;
+      return EVIDENCE.courses[key] || null;
+    }
+
+    function tierLabel(tier) {
+      const map = {
+        catalog: '公称',
+        law: '法令',
+        calc: '計算',
+        extract: '抽出',
+        config: '設定',
+        model: 'モデル'
+      };
+      return map[tier] || tier;
+    }
+
+    function buildEvidenceReport(r, course, veh, opts = {}) {
+      const ev = getCourseEvidence(course);
+      const surfMu = course?.surfaceMuFactor ?? TOUGE_SURFACE_MU;
+      const { audit, simAudit, state: st, summary } = opts;
+      const lines = [];
+
+      if (audit || simAudit || r) {
+        const integ =
+          audit?.okLen &&
+          audit?.okPath &&
+          audit?.gaps &&
+          simAudit?.vChainOk &&
+          simAudit?.okTime &&
+          (simAudit?.brakeShort === 0);
+        lines.push(`── 整合性[${integ ? 'OK' : '要確認'}] ──`);
+        if (audit) {
+          lines.push(
+            `[${tierLabel('calc')}] 区間長合計 ${audit.lenSum?.toFixed(0)}m · path終端 ${course.segments?.at(-1)?.pathTo?.toFixed(4) ?? '—'}`
+          );
+        }
+        if (r) {
+          lines.push(
+            `[${tierLabel('calc')}] 走行積算 ${r.distAccum?.toFixed(0)}m · 設定全長 ${course.totalMeters}m`
+          );
+        }
+        (simAudit?.issues || []).slice(0, 8).forEach((iss) => lines.push(`  ! ${iss}`));
+        lines.push('');
+      }
+
+      lines.push('── 表示中の数値と根拠 ──');
+      lines.push(
+        `[${tierLabel('config')}] コース ${course.name} · logic=${course.logic || 'mixed'} · gradeSign=${course.gradeSign ?? 1}`
+      );
+      lines.push(`[${tierLabel('config')}] コース全長 ${course.totalMeters}m`);
+      lines.push(`  └ ${ev?.distanceM?.ref || '根拠未登録'}`);
+      lines.push(`[${tierLabel('extract')}] 走行ライン ${course.path?.length || 0}点 UV座標`);
+      lines.push(`  └ ${ev?.path?.ref || '赤線抽出パス'}`);
+      if (course.peakCeilingKmh != null) {
+        lines.push(
+          `[${tierLabel('model')}] 山岳ピーク上限 ${course.peakCeilingKmh} km/h · gradeFactor=${course.gradeFactor ?? '—'}`
+        );
+        lines.push(`  └ ${EVIDENCE.tougePeak.ref}`);
+      }
+
+      if (veh) {
+        const carPreset = st?.carKey ? CAR_PRESETS[st.carKey] : null;
+        if (carPreset) {
+          lines.push(`[${tierLabel('catalog')}] 車種 ${carPreset.name}`);
+          lines.push(`  └ ${carPreset.specRef || EVIDENCE.cars._default.ref}`);
+        }
+        const tunedPs = veh._tune?.powerPs ?? Math.round(veh.powerKw / PS_TO_KW);
+        lines.push(
+          `[${tierLabel('catalog')}] 出力 ${tunedPs}PS · 車重 ${veh.m.toFixed(0)}kg · タイヤ周 ${veh.tireCircumM?.toFixed(3)}m`
+        );
+        if (r?.wheelPowerScale != null) {
+          lines.push(
+            `  └ ホイール出力スケール ×${r.wheelPowerScale.toFixed(3)} · ${EVIDENCE.powerCal.ref}`
+          );
+        }
+        lines.push(`  └ 駆動効率 η=${EVIDENCE.wheelPowerEff.value} · ${EVIDENCE.wheelPowerEff.ref}`);
+      }
+
+      if (st) {
+        lines.push(`[${tierLabel('model')}] パーツ・チューニング`);
+        PART_CATALOG.forEach(({ label, data, stateKey }) => {
+          const item = data[st[stateKey]];
+          if (item) lines.push(`  · ${label}: ${item.name}`);
+        });
+        const massNote =
+          st.massMode === 'custom' && st.customMassKg > 0
+            ? `任意 ${st.customMassKg}kg`
+            : WEIGHTS[st.weightKey]?.name || '—';
+        lines.push(`  · 車重モード: ${massNote}`);
+        if (st.targetPowerPs > 0) {
+          lines.push(`  · 目標出力: ${st.targetPowerPs}PS（スライダー${st.powerScalePct ?? 100}%）`);
+        }
+        if (st.wet) lines.push('  · 路面: ウェット[モデル]');
+        lines.push(`  └ ${EVIDENCE.brakes.ref}`);
+      }
+
+      if (r) {
+        lines.push(`[${tierLabel('calc')}] ラップ ${formatLap(r.lapTime)} = Σ区間時間`);
+        lines.push(`[${tierLabel('calc')}] 平均 ${r.summary?.avgKmh?.toFixed(1)} km/h = 全長÷時間`);
+        lines.push(
+          `[${tierLabel('calc')}] コース最高 ${r.coursePeakKmh?.toFixed(0)} km/h = 直線積分ピーク（≤山岳上限${course.peakCeilingKmh ?? '—'}km/h）`
+        );
+        lines.push(`  └ ${EVIDENCE.tougePeak.ref}`);
+        lines.push(
+          `[${tierLabel('calc')}] 平坦上限 ${r.vEffLimit?.toFixed(0)} = min(ギア${r.vGearLimit?.toFixed(0)},出力${r.vPowerLimit?.toFixed(0)}${veh.vmaxCatalog ? ',公称'+veh.vmaxCatalog : ''})`
+        );
+        if (r.vPowerPhysics != null && Math.abs(r.vPowerPhysics - r.vPowerLimit) > 2) {
+          lines.push(
+            `[${tierLabel('calc')}] 出力限界 物理${r.vPowerPhysics.toFixed(0)}→公称照合${r.vPowerLimit.toFixed(0)} km/h（スケール×${veh.wheelPowerScale?.toFixed(3) ?? '1'}）`
+          );
+        }
+        if (veh.vmaxCatalog != null) {
+          lines.push(`[${tierLabel('catalog')}] 公称最高 ${veh.vmaxCatalog} km/h · ${EVIDENCE.powerCal.ref}`);
+        }
+        lines.push(
+          `[${tierLabel('model')}] 実効μ ${r.muEffective?.toFixed(2) ?? r.muDisplay?.toFixed(2)} = タイヤ×路面${surfMu.toFixed(2)}`
+        );
+        const lapRef = getCourseEvidence(course)?.lapRef;
+        if (lapRef) {
+          const ok = r.lapTime >= lapRef.minSec && r.lapTime <= lapRef.maxSec;
+          lines.push(
+            `[${tierLabel(lapRef.tier)}] ラップ妥当帯 ${formatLap(lapRef.minSec)}–${formatLap(lapRef.maxSec)} ${ok ? '内' : '外'} · ${lapRef.ref}`
+          );
+        }
+        lines.push(`[${tierLabel(veh.gearTier || 'model')}] 変速比 ${veh.gears?.map((g) => g.toFixed(3)).join('/')} × ${veh.finalDrive}`);
+        lines.push(`  └ ${veh.gearRef || EVIDENCE.gears.model.ref}`);
+        lines.push(`  └ ${EVIDENCE.tires.ref} · ${EVIDENCE.tougeSurface.ref}`);
+        lines.push(`[${tierLabel('model')}] 勾配% = 地図UV縦差×gradeFactor×gradeSign（実測勾配ではない）`);
+        lines.push(`[${tierLabel('calc')}] コーナ限界 v=√(μgR)×係数 · R=パス曲率から推定`);
+        if (course.usePrecisionSim !== false) {
+          lines.push(
+            `[${tierLabel('calc')}] コース走行 = 適応区間${course.simSegmentCount ?? '—'}分割 · 勾配UVサンプル · 先読み${SIM_LOOKAHEAD_M}m · Δt=${SIM_DT}s`
+          );
+        }
+        lines.push(`[${tierLabel('calc')}] 区間ギア = 直線積分中の滞在時間最大段[計算] / コーナは巡航速度から[計算]`);
+        lines.push(`[${tierLabel('model')}] Wf/BR温度 = 簡易熱モデル`);
+        if (summary) {
+          lines.push(
+            `[${tierLabel('calc')}] 内訳 直線${summary.straightT?.toFixed(1)}s / コーナ${summary.cornerT?.toFixed(1)}s · 区間${r.sectors?.length ?? '—'}`
+          );
+        }
+        lines.push(`[${tierLabel('law')}] 法定速度参考 ${EVIDENCE.speedLimitKmh.value}km/h · ${EVIDENCE.speedLimitKmh.ref}`);
+      }
+      lines.push('');
+      lines.push('── 根拠なし（表示しない／参考のみ）──');
+      lines.push('· 実走ラップ・公式タイム・地図タイル上の道路名');
+      lines.push('· 参照PNG地図の重ね表示（無効化済）');
+      return lines.join('\n');
+    }
+
+    /** 地図パスから区間勾配 sinθ を推定（コース別係数で実勾配%にスケール） */
+    function segmentGradeFromPath(course, f0, f1) {
+      const arc = course.arc || buildArcTable(course.path);
+      const p0 = uvAtArcFrac(course.path, arc, f0);
+      const p1 = uvAtArcFrac(course.path, arc, f1);
+      const dv = p0[1] - p1[1];
+      const factor = course.gradeFactor ?? 0.35;
+      const sign = course.gradeSign ?? 1;
+      const theta = dv * factor * sign;
+      return Math.max(-0.11, Math.min(0.11, theta));
+    }
+
+    function gradePercent(theta) {
+      return (Math.sin(theta) * 100);
+    }
+
+    function buildSegmentsFromPath(course) {
+      if (!course.useManualProfile) {
+        course.physicsProfile = generatePhysicsProfileFromPath(course);
+      }
+      const profile = course.physicsProfile || [];
+      const sumShare = profile.reduce((a, p) => a + p.share, 0) || 1;
+      const arc = buildArcTable(course.path);
+      course.arc = arc;
+      const segments = [];
+      profile.forEach((p, i) => {
+        const share = p.share / sumShare;
+        const f0 = p.pathFrom != null ? p.pathFrom : (i / profile.length);
+        const f1 = p.pathTo != null ? p.pathTo : ((i + 1) / profile.length);
+        const geo = analyzePathSegment(course.path, arc, f0, f1, course.totalMeters, course);
+        const type = p.type || geo.type;
+        const R = type === 'corner' ? (p.R ?? geo.R) : 9999;
+        const theta = p.theta != null ? p.theta : segmentGradeFromPath(course, f0, f1);
+        const len = p.pathFrom != null ? geo.lenM : course.totalMeters * share;
+        segments.push({
+          id: p.id,
+          type,
+          profileType: p.type,
+          geoType: geo.type,
+          geoR: geo.R,
+          len,
+          R,
+          theta,
+          pathFrom: f0,
+          pathTo: f1
+        });
+      });
+      const lenSum = segments.reduce((a, s) => a + s.len, 0) || 1;
+      const lenScale = course.totalMeters / lenSum;
+      segments.forEach((s) => {
+        s.len *= lenScale;
+      });
+      course.segments = segments;
+      course.routeMeters = course.totalMeters;
+      course.simSegmentCount = segments.length;
+      return course;
+    }
+
+    const COURSES = {
+      // 信貴山：参照画像の赤線を extract-red-path.mjs で自動抽出
+      shigisan: {
+        name: '信貴山（赤線コース）',
+        desc: '赤線抽出：左下S→右上F（十三峠〜鳴川峠〜旗立山方面）',
+        refMap: { src: 'assets/shigisan-ref.png' },
+        refSource: 'shigisan',
+        mapAspect: 473 / 1024,
+        pathExtract: { startCorner: 'll', nPts: 140, dilateMax: 4 },
+        logic: 'mixed',
+        terrain: 'ridge',
+        gradeFactor: 0.52,
+        gradeSign: 1,
+        totalMeters: 4200,
+        cornerGripFactor: 0.92,
+        surfaceMuFactor: TOUGE_SURFACE_MU,
+        cornerThresh: 78,
+        profileSegmentCount: 22,
+        usePrecisionSim: true,
+        startSpeedKmh: 38,
+        peakCeilingKmh: 125,
+        startLabel: '左下 赤点',
+        endLabel: '右上 赤点',
+        landmarks: [
+          { u: 0.2389, v: 0.833, label: 'S' },
+          { u: 0.455, v: 0.395, label: '鳴川峠' },
+          { u: 0.360, v: 0.755, label: '十三峠' },
+          { u: 0.8161, v: 0.1533, label: 'F' }
+        ],
+        path: [
+          [0.2389,0.833],
+          [0.2333,0.8265],
+          [0.2263,0.8203],
+          [0.2379,0.8149],
+          [0.2513,0.8115],
+          [0.2659,0.8096],
+          [0.2789,0.8057],
+          [0.2875,0.7998],
+          [0.2932,0.7933],
+          [0.296,0.7862],
+          [0.296,0.7787],
+          [0.296,0.7711],
+          [0.2927,0.7641],
+          [0.2841,0.7582],
+          [0.2812,0.7512],
+          [0.2812,0.7436],
+          [0.2812,0.736],
+          [0.2812,0.7284],
+          [0.2812,0.7208],
+          [0.2812,0.7132],
+          [0.277,0.7065],
+          [0.2727,0.6997],
+          [0.2727,0.6921],
+          [0.2773,0.6854],
+          [0.2895,0.6807],
+          [0.3024,0.6768],
+          [0.3153,0.6729],
+          [0.3283,0.6689],
+          [0.3416,0.6655],
+          [0.3556,0.6629],
+          [0.3685,0.6589],
+          [0.3817,0.6553],
+          [0.3963,0.6533],
+          [0.411,0.6514],
+          [0.4274,0.6514],
+          [0.4421,0.6494],
+          [0.4555,0.646],
+          [0.4683,0.6421],
+          [0.4778,0.6363],
+          [0.4826,0.6296],
+          [0.4863,0.6227],
+          [0.4861,0.6152],
+          [0.4745,0.6098],
+          [0.4629,0.6044],
+          [0.4501,0.6005],
+          [0.4384,0.5951],
+          [0.4268,0.5897],
+          [0.4207,0.5833],
+          [0.4228,0.5761],
+          [0.424,0.5688],
+          [0.4271,0.5618],
+          [0.4271,0.5542],
+          [0.4249,0.547],
+          [0.4249,0.5394],
+          [0.4249,0.5319],
+          [0.4357,0.5264],
+          [0.4521,0.5264],
+          [0.4663,0.5239],
+          [0.4779,0.5186],
+          [0.492,0.5159],
+          [0.4989,0.5097],
+          [0.4889,0.5051],
+          [0.4803,0.4992],
+          [0.4799,0.4917],
+          [0.4757,0.4849],
+          [0.4757,0.4773],
+          [0.4715,0.4705],
+          [0.4672,0.4638],
+          [0.4566,0.46],
+          [0.4419,0.458],
+          [0.4266,0.4568],
+          [0.4137,0.4528],
+          [0.4051,0.4469],
+          [0.3965,0.441],
+          [0.3911,0.4344],
+          [0.3882,0.4274],
+          [0.3869,0.42],
+          [0.3869,0.4125],
+          [0.3975,0.4069],
+          [0.3975,0.3993],
+          [0.4022,0.3936],
+          [0.4186,0.3936],
+          [0.4341,0.3945],
+          [0.4505,0.3945],
+          [0.467,0.3945],
+          [0.4805,0.3977],
+          [0.4921,0.4031],
+          [0.505,0.4071],
+          [0.5191,0.4097],
+          [0.535,0.4101],
+          [0.5436,0.4042],
+          [0.5497,0.3977],
+          [0.546,0.3909],
+          [0.5331,0.3869],
+          [0.5203,0.3829],
+          [0.5074,0.3789],
+          [0.5011,0.3726],
+          [0.5074,0.3662],
+          [0.5161,0.3603],
+          [0.5277,0.3549],
+          [0.5393,0.3495],
+          [0.5455,0.3431],
+          [0.5419,0.3362],
+          [0.5307,0.3308],
+          [0.5267,0.3241],
+          [0.5389,0.3193],
+          [0.5518,0.3154],
+          [0.5653,0.3121],
+          [0.5769,0.3068],
+          [0.5898,0.3028],
+          [0.6026,0.2988],
+          [0.6142,0.2934],
+          [0.6228,0.2875],
+          [0.6315,0.2816],
+          [0.6342,0.2745],
+          [0.6397,0.268],
+          [0.6469,0.2618],
+          [0.6469,0.2542],
+          [0.6506,0.2473],
+          [0.6563,0.2408],
+          [0.6679,0.2354],
+          [0.6825,0.2334],
+          [0.6961,0.2302],
+          [0.7101,0.2276],
+          [0.7255,0.2264],
+          [0.7411,0.2256],
+          [0.7549,0.2226],
+          [0.7677,0.2186],
+          [0.7793,0.2133],
+          [0.7907,0.2078],
+          [0.7949,0.2011],
+          [0.8052,0.1954],
+          [0.8171,0.1904],
+          [0.8297,0.1861],
+          [0.8383,0.1802],
+          [0.8457,0.174],
+          [0.8457,0.1664],
+          [0.8436,0.1592],
+          [0.8307,0.1553],
+          [0.8161,0.1533]
+        ],
+        physicsProfile: [
+          { id:'S01', share:0.09, type:'straight' },
+          { id:'S02', share:0.08, type:'corner' },
+          { id:'S03', share:0.11, type:'straight' },
+          { id:'S04', share:0.06, type:'corner' },
+          { id:'S05', share:0.05, type:'corner', R:14 },
+          { id:'S06', share:0.05, type:'corner', R:12 },
+          { id:'S07', share:0.05, type:'corner', R:11 },
+          { id:'S08', share:0.05, type:'corner', R:13 },
+          { id:'S09', share:0.05, type:'corner', R:12 },
+          { id:'S10', share:0.05, type:'corner', R:10 },
+          { id:'S11', share:0.06, type:'corner', R:11 },
+          { id:'S12', share:0.10, type:'straight' },
+          { id:'S13', share:0.08, type:'corner' },
+          { id:'S14', share:0.08, type:'corner' }
+        ],
+        climbPenalty: 1.18
+      },
+      // 猿山：参照画像 minoo-ref（府道43号系統・地図ベース）
+      saruyama: {
+        name: '猿山（赤線コース）',
+        desc: '赤線抽出：左上S→右下F（猿山・府道43号）',
+        refMap: { src: 'assets/minoo-ref.png' },
+        refSource: 'saruyama',
+        mapAspect: 473 / 1024,
+        pathExtract: { startCorner: 'ul', nPts: 140, dilateMax: 4 },
+        logic: 'lateral',
+        terrain: 'valley',
+        gradeFactor: 0.26,
+        gradeSign: 1,
+        totalMeters: 3100,
+        cornerGripFactor: 0.91,
+        surfaceMuFactor: TOUGE_SURFACE_MU,
+        cornerThresh: 78,
+        profileSegmentCount: 20,
+        usePrecisionSim: true,
+        startSpeedKmh: 38,
+        peakCeilingKmh: 110,
+        startLabel: '左上 赤点',
+        endLabel: '地獄谷口',
+        landmarks: [
+          { u: 0.1036, v: 0.1895, label: 'S' },
+          { u: 0.510, v: 0.470, label: '雲隣展望台口' },
+          { u: 0.460, v: 0.525, label: '箕面大滝' },
+          { u: 0.585, v: 0.655, label: '風呂谷口' },
+          { u: 0.7822, v: 0.7383, label: 'F' }
+        ],
+        path: [
+          [0.1036,0.1895],
+          [0.1174,0.1948],
+          [0.1305,0.2009],
+          [0.1471,0.2031],
+          [0.164,0.2051],
+          [0.1809,0.207],
+          [0.1995,0.207],
+          [0.2181,0.207],
+          [0.2367,0.207],
+          [0.2548,0.2075],
+          [0.2721,0.209],
+          [0.2886,0.2114],
+          [0.3042,0.2147],
+          [0.3209,0.2168],
+          [0.336,0.2207],
+          [0.3511,0.2247],
+          [0.3655,0.2294],
+          [0.3763,0.2359],
+          [0.3858,0.2427],
+          [0.389,0.2506],
+          [0.3883,0.2591],
+          [0.3784,0.2658],
+          [0.374,0.2735],
+          [0.3668,0.2808],
+          [0.3596,0.288],
+          [0.3524,0.2952],
+          [0.3423,0.3019],
+          [0.3351,0.3091],
+          [0.3277,0.3163],
+          [0.3207,0.3235],
+          [0.315,0.331],
+          [0.3161,0.3394],
+          [0.3171,0.3478],
+          [0.315,0.356],
+          [0.31,0.3636],
+          [0.3066,0.3716],
+          [0.3023,0.3793],
+          [0.3023,0.3879],
+          [0.3023,0.3965],
+          [0.3051,0.4046],
+          [0.3087,0.4125],
+          [0.3066,0.4207],
+          [0.3042,0.4288],
+          [0.3023,0.4371],
+          [0.3023,0.4457],
+          [0.3115,0.4525],
+          [0.3261,0.457],
+          [0.3447,0.457],
+          [0.3633,0.457],
+          [0.3801,0.459],
+          [0.397,0.4609],
+          [0.414,0.4627],
+          [0.4307,0.4648],
+          [0.4458,0.4688],
+          [0.4609,0.4727],
+          [0.4711,0.4793],
+          [0.4812,0.486],
+          [0.4905,0.4928],
+          [0.5016,0.4993],
+          [0.5147,0.5053],
+          [0.5291,0.51],
+          [0.5444,0.5137],
+          [0.5613,0.5156],
+          [0.5781,0.5176],
+          [0.5968,0.5176],
+          [0.6154,0.5176],
+          [0.634,0.5176],
+          [0.6509,0.5175],
+          [0.6581,0.5247],
+          [0.6623,0.5325],
+          [0.6681,0.54],
+          [0.6796,0.5463],
+          [0.696,0.5488],
+          [0.7146,0.5488],
+          [0.7321,0.5476],
+          [0.7492,0.5459],
+          [0.766,0.5439],
+          [0.7829,0.542],
+          [0.7997,0.54],
+          [0.8161,0.5417],
+          [0.8154,0.5501],
+          [0.801,0.5548],
+          [0.7858,0.5586],
+          [0.7752,0.5648],
+          [0.762,0.5709],
+          [0.7489,0.5769],
+          [0.7357,0.583],
+          [0.7213,0.5877],
+          [0.7081,0.5938],
+          [0.693,0.5977],
+          [0.6779,0.6016],
+          [0.6625,0.6051],
+          [0.6469,0.6084],
+          [0.6291,0.6094],
+          [0.6119,0.6109],
+          [0.5975,0.6156],
+          [0.5941,0.6235],
+          [0.5941,0.6321],
+          [0.5941,0.6407],
+          [0.5969,0.6488],
+          [0.6089,0.6551],
+          [0.6173,0.6621],
+          [0.6216,0.6698],
+          [0.63,0.6768],
+          [0.63,0.6854],
+          [0.6245,0.693],
+          [0.6152,0.6998],
+          [0.6072,0.7068],
+          [0.6025,0.7145],
+          [0.5983,0.7223],
+          [0.5941,0.7301],
+          [0.5941,0.7387],
+          [0.5974,0.7467],
+          [0.6004,0.7547],
+          [0.6058,0.7622],
+          [0.6131,0.7694],
+          [0.6171,0.7773],
+          [0.6173,0.7858],
+          [0.6225,0.7934],
+          [0.6398,0.7949],
+          [0.6563,0.7973],
+          [0.6681,0.8036],
+          [0.6765,0.8106],
+          [0.6838,0.8178],
+          [0.6934,0.8245],
+          [0.7041,0.8311],
+          [0.7185,0.8358],
+          [0.7315,0.8317],
+          [0.7357,0.8239],
+          [0.7389,0.8159],
+          [0.7442,0.8083],
+          [0.7484,0.8006],
+          [0.7514,0.7925],
+          [0.7586,0.7853],
+          [0.7658,0.7781],
+          [0.7738,0.771],
+          [0.778,0.7633],
+          [0.778,0.7547],
+          [0.778,0.7461],
+          [0.7822,0.7383]
+        ],
+        physicsProfile: [
+          { id:'M01', share:0.055, type:'corner', R:10 },
+          { id:'M02', share:0.050, type:'corner', R:9 },
+          { id:'M03', share:0.050, type:'corner', R:9 },
+          { id:'M04', share:0.050, type:'corner', R:10 },
+          { id:'M05', share:0.050, type:'corner', R:10 },
+          { id:'M06', share:0.050, type:'corner', R:11 },
+          { id:'M07', share:0.070, type:'straight' },
+          { id:'M08', share:0.060, type:'corner' },
+          { id:'M09', share:0.060, type:'corner' },
+          { id:'M10', share:0.065, type:'corner' },
+          { id:'M11', share:0.070, type:'corner' },
+          { id:'M12', share:0.075, type:'corner', R:12 },
+          { id:'M13', share:0.080, type:'corner', R:11 },
+          { id:'M14', share:0.080, type:'corner', R:10 },
+          { id:'M15', share:0.085, type:'corner', R:10 }
+        ],
+        lateralStress: 0.92
+      },
+      // 阪奈府道8号：赤線どおり 左(市街)S→右(山)F、南側ループ含む
+      hanna: {
+        name: '阪奈 府道8号（赤線コース）',
+        desc: '🔴S→南ループ底→F（赤線どおり南へUターンして東へ）',
+        refMap: { src: 'assets/hanna-ref.png' },
+        refSource: 'hanna',
+        mapAspect: 473 / 1024,
+        pathExtract: { markerPair: true, hannaRoute: true, nPts: 200, dilate: 4 },
+        logic: 'climb',
+        terrain: 'downhill_city',
+        gradeFactor: 0.48,
+        gradeSign: -1,
+        totalMeters: 4400,
+        cornerGripFactor: 0.92,
+        surfaceMuFactor: TOUGE_SURFACE_MU,
+        cornerThresh: 78,
+        profileSegmentCount: 22,
+        usePrecisionSim: true,
+        startSpeedKmh: 38,
+        peakCeilingKmh: 155,
+        startLabel: '善根寺町付近 S',
+        endLabel: '府道8号 F',
+        landmarks: [
+          { u: 0.482, v: 0.4473, label: 'S' },
+          { u: 0.595, v: 0.515, label: '中垣内' },
+          { u: 0.718, v: 0.738, label: '南ループ' },
+          { u: 0.84, v: 0.534, label: '府道8号' },
+          { u: 0.8609, v: 0.3647, label: 'F' }
+        ],
+        path: [
+          [0.482,0.4473],
+          [0.4906,0.4473],
+          [0.4991,0.4473],
+          [0.5077,0.4473],
+          [0.5162,0.4473],
+          [0.5246,0.4474],
+          [0.5307,0.4502],
+          [0.5367,0.453],
+          [0.5427,0.4558],
+          [0.5488,0.4586],
+          [0.5548,0.4614],
+          [0.5609,0.4641],
+          [0.5669,0.4669],
+          [0.5729,0.4697],
+          [0.579,0.4725],
+          [0.585,0.4753],
+          [0.5881,0.4787],
+          [0.592,0.4819],
+          [0.5962,0.485],
+          [0.6002,0.4882],
+          [0.6004,0.4921],
+          [0.6033,0.4955],
+          [0.6047,0.4992],
+          [0.6064,0.5028],
+          [0.6089,0.5063],
+          [0.6089,0.5102],
+          [0.6126,0.5134],
+          [0.6131,0.5173],
+          [0.6131,0.5212],
+          [0.6158,0.5247],
+          [0.6173,0.5283],
+          [0.6216,0.5314],
+          [0.6219,0.5353],
+          [0.6258,0.5385],
+          [0.63,0.5417],
+          [0.6341,0.5448],
+          [0.6371,0.5482],
+          [0.6432,0.551],
+          [0.6469,0.5542],
+          [0.6512,0.5573],
+          [0.6523,0.5611],
+          [0.6554,0.5644],
+          [0.6554,0.5684],
+          [0.6596,0.5715],
+          [0.6596,0.5755],
+          [0.6596,0.5794],
+          [0.6596,0.5834],
+          [0.6617,0.5869],
+          [0.6638,0.5904],
+          [0.6638,0.5944],
+          [0.6638,0.5983],
+          [0.6638,0.6023],
+          [0.668,0.6054],
+          [0.6681,0.6094],
+          [0.6681,0.6133],
+          [0.6681,0.6172],
+          [0.6681,0.6212],
+          [0.6681,0.6251],
+          [0.6681,0.6291],
+          [0.6681,0.633],
+          [0.6685,0.6369],
+          [0.6723,0.6401],
+          [0.6746,0.6436],
+          [0.6776,0.647],
+          [0.6837,0.6498],
+          [0.6897,0.6526],
+          [0.6957,0.6554],
+          [0.7018,0.6581],
+          [0.7061,0.6613],
+          [0.7104,0.6644],
+          [0.7139,0.6677],
+          [0.717,0.671],
+          [0.7188,0.6746],
+          [0.7188,0.6786],
+          [0.7188,0.6825],
+          [0.7188,0.6865],
+          [0.7188,0.6904],
+          [0.7188,0.6943],
+          [0.7188,0.6983],
+          [0.7188,0.7022],
+          [0.7188,0.7062],
+          [0.7188,0.7101],
+          [0.7188,0.7141],
+          [0.7188,0.718],
+          [0.7188,0.722],
+          [0.7188,0.7259],
+          [0.7188,0.7299],
+          [0.7188,0.7338],
+          [0.7198,0.7373],
+          [0.7283,0.7373],
+          [0.7369,0.7373],
+          [0.7454,0.7373],
+          [0.7523,0.7355],
+          [0.7584,0.7327],
+          [0.7644,0.7299],
+          [0.7704,0.7271],
+          [0.7765,0.7243],
+          [0.7822,0.7215],
+          [0.7822,0.7175],
+          [0.7822,0.7136],
+          [0.7822,0.7097],
+          [0.7822,0.7057],
+          [0.7822,0.7018],
+          [0.7822,0.6978],
+          [0.7822,0.6939],
+          [0.7822,0.6899],
+          [0.7822,0.686],
+          [0.7822,0.682],
+          [0.7822,0.6781],
+          [0.7822,0.6741],
+          [0.7822,0.6702],
+          [0.7822,0.6663],
+          [0.7822,0.6623],
+          [0.7822,0.6584],
+          [0.7822,0.6544],
+          [0.7822,0.6505],
+          [0.7822,0.6465],
+          [0.7822,0.6426],
+          [0.7822,0.6386],
+          [0.7822,0.6347],
+          [0.7822,0.6307],
+          [0.7822,0.6268],
+          [0.7822,0.6228],
+          [0.7822,0.6189],
+          [0.7822,0.615],
+          [0.7822,0.611],
+          [0.7822,0.6071],
+          [0.7822,0.6031],
+          [0.7822,0.5992],
+          [0.7822,0.5952],
+          [0.7822,0.5913],
+          [0.7822,0.5873],
+          [0.7846,0.5839],
+          [0.7865,0.5803],
+          [0.7907,0.5771],
+          [0.7907,0.5732],
+          [0.7939,0.5698],
+          [0.7949,0.5661],
+          [0.7949,0.5621],
+          [0.7949,0.5582],
+          [0.7949,0.5543],
+          [0.7949,0.5503],
+          [0.8002,0.5474],
+          [0.8062,0.5446],
+          [0.8123,0.5418],
+          [0.8183,0.539],
+          [0.8244,0.5362],
+          [0.8316,0.5348],
+          [0.8396,0.5342],
+          [0.8482,0.5342],
+          [0.856,0.5333],
+          [0.8635,0.5322],
+          [0.872,0.5322],
+          [0.879,0.5305],
+          [0.8874,0.5303],
+          [0.8948,0.5291],
+          [0.9027,0.5283],
+          [0.9094,0.5262],
+          [0.9154,0.5234],
+          [0.9215,0.5207],
+          [0.9275,0.5179],
+          [0.9335,0.5151],
+          [0.9396,0.5123],
+          [0.9456,0.5095],
+          [0.9517,0.5067],
+          [0.9556,0.5035],
+          [0.9556,0.4996],
+          [0.9556,0.4956],
+          [0.9556,0.4917],
+          [0.9556,0.4877],
+          [0.9556,0.4838],
+          [0.9546,0.48],
+          [0.9486,0.4772],
+          [0.9426,0.4744],
+          [0.9365,0.4717],
+          [0.9305,0.4689],
+          [0.9244,0.4661],
+          [0.9184,0.4633],
+          [0.9124,0.4605],
+          [0.9063,0.4577],
+          [0.9003,0.4549],
+          [0.8942,0.4521],
+          [0.8882,0.4493],
+          [0.8822,0.4465],
+          [0.8761,0.4437],
+          [0.8701,0.441],
+          [0.8668,0.4382],
+          [0.8668,0.4343],
+          [0.8668,0.4303],
+          [0.8668,0.4264],
+          [0.8668,0.4224],
+          [0.8668,0.4185],
+          [0.8668,0.4145],
+          [0.8645,0.411],
+          [0.8605,0.4079],
+          [0.8605,0.4039],
+          [0.8553,0.4009],
+          [0.8493,0.3982],
+          [0.8432,0.3954],
+          [0.8609,0.3647]
+        ],
+        physicsProfile: [
+          { id:'H01', share:0.10, type:'corner', R:35 },
+          { id:'H02', share:0.09, type:'corner', R:28 },
+          { id:'H03', share:0.08, type:'corner', R:32 },
+          { id:'H04', share:0.08, type:'corner', R:25 },
+          { id:'H05', share:0.07, type:'corner', R:22 },
+          { id:'H06', share:0.08, type:'corner', R:40 },
+          { id:'H07', share:0.10, type:'corner', R:18 },
+          { id:'H08', share:0.09, type:'corner', R:16 },
+          { id:'H09', share:0.08, type:'corner', R:45 },
+          { id:'H10', share:0.08, type:'corner', R:20 },
+          { id:'H11', share:0.08, type:'corner', R:22 },
+          { id:'H12', share:0.08, type:'straight' }
+        ],
+        climbPenalty: 1.22,
+        brakeHeatGain: 1.2
+      },
+    };
+
+    function reversePath(path) {
+      return path.slice().reverse();
+    }
+
+    function cloneLandmarksForPath(landmarks, path) {
+      const s = path[0];
+      const f = path[path.length - 1];
+      return (landmarks || []).map((lm) => {
+        if (lm.label === 'S') return { ...lm, u: s[0], v: s[1], label: 'S' };
+        if (lm.label === 'F' || String(lm.label).startsWith('F')) {
+          return { ...lm, u: f[0], v: f[1], label: 'F' };
+        }
+        return { ...lm };
+      });
+    }
+
+    function reidProfile(profile, prefix) {
+      return profile.map((p, i) => ({
+        ...p,
+        id: prefix + String(i + 1).padStart(2, '0')
+      }));
+    }
+
+    function pickBaseCourse(key) {
+      return COURSES[key];
+    }
+
+    /** 信貴山・猿山：上り／下りの2走行パターンを生成 */
+    function registerUpDownVariants(baseKey, labels) {
+      const base = pickBaseCourse(baseKey);
+      if (!base?.path?.length) return;
+      const upKey = `${baseKey}_up`;
+      const downKey = `${baseKey}_down`;
+      const upPath = base.path.slice();
+
+      const { physicsProfile: _p0, ...baseUp } = base;
+      COURSES[upKey] = {
+        ...baseUp,
+        refSource: base.refSource || baseKey,
+        name: labels.up.name,
+        desc: labels.up.desc,
+        startLabel: base.startLabel,
+        endLabel: base.endLabel,
+        path: upPath,
+        landmarks: cloneLandmarksForPath(base.landmarks, upPath),
+        gradeSign: 1,
+        gradeFactor: base.gradeFactor,
+        logic: base.logic,
+        peakCeilingKmh: labels.up.peakCeilingKmh ?? base.peakCeilingKmh ?? 125,
+        useManualProfile: false,
+        usePrecisionSim: true
+      };
+
+      const downPath = reversePath(base.path);
+      const { physicsProfile: _p1, ...baseDown } = base;
+      COURSES[downKey] = {
+        ...baseDown,
+        refSource: base.refSource || baseKey,
+        name: labels.down.name,
+        desc: labels.down.desc,
+        startLabel: base.endLabel,
+        endLabel: base.startLabel,
+        path: downPath,
+        landmarks: cloneLandmarksForPath(base.landmarks, downPath),
+        gradeSign: -1,
+        gradeFactor: base.gradeFactor,
+        logic: base.logic === 'lateral' ? 'lateral' : 'mixed',
+        terrain: base.terrain,
+        peakCeilingKmh: labels.down.peakCeilingKmh ?? Math.round((base.peakCeilingKmh ?? 125) * 1.12),
+        useManualProfile: false,
+        usePrecisionSim: true
+      };
+
+      delete COURSES[baseKey];
+    }
+
+    /** 阪奈：下りのみ・S/Fを地図上で反転 */
+    function registerHannaDownVariant() {
+      const base = pickBaseCourse('hanna');
+      if (!base?.path?.length) return;
+      const path = reversePath(base.path);
+      const { physicsProfile: _pH, ...baseH } = base;
+      COURSES.hanna_down = {
+        ...baseH,
+        refSource: 'hanna',
+        name: '阪奈 下り',
+        desc: '府道8号S→善根寺町F · 下り 4.4km（S/F反転）',
+        startLabel: '府道8号 S',
+        endLabel: '善根寺町 F',
+        path,
+        landmarks: cloneLandmarksForPath(base.landmarks, path),
+        gradeSign: -1,
+        gradeFactor: base.gradeFactor,
+        logic: 'downhill',
+        terrain: 'downhill_city',
+        useManualProfile: false,
+        usePrecisionSim: true
+      };
+      delete COURSES.hanna;
+    }
+
+    registerUpDownVariants('shigisan', {
+      prefixUp: 'SU',
+      prefixDown: 'SD',
+      up: { name: '信貴山 上り', desc: '左下S→右上F · 上り 4.2km', peakCeilingKmh: 125 },
+      down: { name: '信貴山 下り', desc: '右上S→左下F · 下り 4.2km', peakCeilingKmh: 140 }
+    });
+    registerUpDownVariants('saruyama', {
+      prefixUp: 'YU',
+      prefixDown: 'YD',
+      up: { name: '猿山 上り', desc: '左上S→右下F · 上り 3.1km', peakCeilingKmh: 110 },
+      down: { name: '猿山 下り', desc: '右下S→左上F · 下り 3.1km', peakCeilingKmh: 125 }
+    });
+    registerHannaDownVariant();
+
+    Object.values(COURSES).forEach(buildSegmentsFromPath);
+
+    function getRouteMeters(course) {
+      return course.routeMeters ?? course.totalMeters ?? 0;
+    }
+
+    function measurePixelArc(path, imgW, imgH) {
+      let sum = 0;
+      for (let i = 1; i < path.length; i++) {
+        const dx = (path[i][0] - path[i - 1][0]) * imgW;
+        const dy = (path[i][1] - path[i - 1][1]) * imgH;
+        sum += Math.hypot(dx, dy);
+      }
+      return sum;
+    }
+
+    function formatDistM(m) {
+      if (!Number.isFinite(m) || m <= 0) return '—';
+      if (m >= 1000) return `${(m / 1000).toFixed(2)} km`;
+      return `${Math.round(m)} m`;
+    }
+
+    function courseRefImageKey(course, courseKey) {
+      return course?.refSource || courseKey;
+    }
+
+    function computeCourseMetrics(course, courseKey) {
+      const path = course.path || [];
+      const routeM = getRouteMeters(course);
+      const img = refImages[courseKey] || refImages[courseRefImageKey(course, courseKey)];
+      const imgW = img?.naturalWidth || 473;
+      const imgH = img?.naturalHeight || 1024;
+      const arc = course.arc || (path.length > 1 ? buildArcTable(path) : { total: 0 });
+      const pixelArc = measurePixelArc(path, imgW, imgH);
+      const metersPerPx = pixelArc > 0 ? routeM / pixelArc : 0;
+      const s = path[0];
+      const f = path[path.length - 1];
+      const sfPx = s && f ? Math.hypot((f[0] - s[0]) * imgW, (f[1] - s[1]) * imgH) : 0;
+      const sfM = sfPx * metersPerPx;
+      const segSum = (course.segments || []).reduce((a, seg) => a + seg.len, 0);
+      const corners = (course.segments || []).filter((seg) => seg.type === 'corner').length;
+      let climbUp = 0;
+      let climbDown = 0;
+      for (const seg of course.segments || []) {
+        const dm = seg.len * (seg.theta || 0);
+        if (dm > 0) climbUp += dm;
+        else climbDown -= dm;
+      }
+      return {
+        points: path.length,
+        routeM,
+        pixelArc,
+        sfM,
+        segSum,
+        corners,
+        climbUp,
+        climbDown,
+        uvArc: arc.total,
+        imgW,
+        imgH
+      };
+    }
+
+    function updateCourseStatsDisplay() {
+      const course = getCourse();
+      const m = computeCourseMetrics(course, state.courseKey);
+      const routeStr = formatDistM(m.routeM);
+      const sfStr = formatDistM(m.sfM);
+      const ev = getCourseEvidence(course);
+      if (els.lapDist && !state.results) {
+        els.lapDist.textContent =
+          `全長 ${routeStr}[設定] · S→F直線 ${sfStr}[設定按分] · ${m.points}pt[抽出]`;
+      }
+      if (els.courseStats && !state.results) {
+        els.courseStats.textContent =
+          `${m.points} pt[抽出] · 区間合計 ${formatDistM(m.segSum)}[設定按分] · 勾配登り${Math.round(m.climbUp)}m/下り${Math.round(m.climbDown)}m[モデル]`;
+      }
+      if (els.courseMapStats) {
+        els.courseMapStats.textContent =
+          `パス ${m.points}pt · UV弧長 ${m.uvArc.toFixed(2)} · 全長は設定値${routeStr}（縮尺未検証）`;
+      }
+    }
+
+    function getMinZoom() {
+      return Math.max(MAP_ZOOM_ABS_MIN, state.fitZoom || MAP_ZOOM_ABS_MIN);
+    }
+
+    function clampZoom(z) {
+      return Math.min(MAP_ZOOM_MAX, Math.max(getMinZoom(), z));
+    }
+
+    // ─── State ───
+    const state = {
+      carKey: 'gr86',
+      tireKey: 'sport',
+      brakeKey: 'stock',
+      weightKey: 'normal',
+      suspKey: 'stock',
+      wheelKey: 'stock',
+      aeroKey: 'none',
+      diffKey: 'open',
+      intakeKey: 'stock',
+      coolKey: 'stock',
+      massMode: 'preset',
+      customMassKg: 0,
+      powerUserSet: false,
+      powerScalePct: 100,
+      targetPowerPs: 0,
+      courseKey: 'shigisan_up',
+      courseGroup: 'shigisan',
+      courseDir: 'up',
+      Ne: 7000,
+      wet: false,
+      mapView: 'course',
+      mapZoom: 1,
+      fitZoom: 1,
+      mapPanX: 0,
+      mapPanY: 0,
+      results: null
+    };
+
+    const mapPan = { active: false, lastX: 0, lastY: 0 };
+    const MAP_ZOOM_MAX = 5;
+    const MAP_ZOOM_ABS_MIN = 0.35;
+
+    const refImages = {};
+
+    const STORAGE_KEY = 'hashiriya_setup_lab_v8';
+
+    const COURSE_GROUPS = [
+      { id: 'shigisan', label: '信貴山', up: 'shigisan_up', down: 'shigisan_down' },
+      { id: 'saruyama', label: '猿山', up: 'saruyama_up', down: 'saruyama_down' },
+      { id: 'hanna', label: '阪奈', up: null, down: 'hanna_down', downOnly: true }
+    ];
+
+    // ─── DOM ───
+    const $ = (id) => document.getElementById(id);
+    const els = {
+      carPreset: $('carPreset'),
+      partsContainer: $('partsContainer'),
+      massMode: $('massMode'),
+      customMassKg: $('customMassKg'),
+      massHint: $('massHint'),
+      powerSlider: $('powerSlider'),
+      powerVal: $('powerVal'),
+      targetPowerPs: $('targetPowerPs'),
+      courseSelect: $('courseSelect'),
+      courseDesc: $('courseDesc'),
+      courseGroupTabs: $('courseGroupTabs'),
+      courseDirToggle: $('courseDirToggle'),
+      rpmSlider: $('rpmSlider'),
+      rpmVal: $('rpmVal'),
+      wetMode: $('wetMode'),
+      lapTime: $('lapTime'),
+      lapDist: $('lapDist'),
+      simSummaryMain: $('simSummaryMain'),
+      courseStats: $('courseStats'),
+      courseMapStats: $('courseMapStats'),
+      vMaxSeg: $('vMaxSeg'),
+      vDriveMax: $('vDriveMax'),
+      vDriveMaxNote: $('vDriveMaxNote'),
+      muWeight: $('muWeight'),
+      sectorGrid: $('sectorGrid'),
+      physicsLog: $('physicsLog'),
+      wfDisplay: $('wfDisplay'),
+      brakeTemp: $('brakeTemp'),
+      brakeMu: $('brakeMu'),
+      saveIndicator: $('saveIndicator'),
+      carSpec: $('carSpec'),
+      canvas: $('courseCanvas'),
+      mapViewCourse: $('mapViewCourse'),
+      mapViewSim: $('mapViewSim'),
+      mapLegendSim: $('mapLegendSim'),
+      mapFit: $('mapFit'),
+      mapZoomIn: $('mapZoomIn'),
+      mapZoomOut: $('mapZoomOut'),
+      mapZoomReset: $('mapZoomReset'),
+      mapZoomLabel: $('mapZoomLabel')
+    };
+
+    function isPrimaryRefCourse(key, course) {
+      if (key.endsWith('_up')) return true;
+      if (course.refSource === 'hanna' && key === 'hanna_down') return true;
+      return false;
+    }
+
+    function shareRefImage(src, img) {
+      Object.entries(COURSES).forEach(([k, c]) => {
+        if ((c.refSource || k) === src) refImages[k] = img;
+      });
+    }
+
+    function syncUpDownPaths(refSource, upPath) {
+      applyPathToCourse(`${refSource}_up`, upPath.slice());
+      applyPathToCourse(`${refSource}_down`, reversePath(upPath));
+    }
+
+    function applyPathToCourse(courseKey, path) {
+      const course = COURSES[courseKey];
+      if (!course || !path?.length) return;
+      course.path = path;
+      const s = path[0];
+      const f = path[path.length - 1];
+      (course.landmarks || []).forEach((lm) => {
+        if (lm.label === 'S') { lm.u = s[0]; lm.v = s[1]; }
+        if (lm.label === 'F' || String(lm.label).startsWith('F')) { lm.u = f[0]; lm.v = f[1]; }
+      });
+      buildSegmentsFromPath(course);
+    }
+
+    function loadRefMaps() {
+      const loadedSrc = new Set();
+      Object.entries(COURSES).forEach(([key, course]) => {
+        if (!course.refMap) return;
+        const src = course.refSource || key;
+        if (!isPrimaryRefCourse(key, course) || loadedSrc.has(src)) return;
+        loadedSrc.add(src);
+        const img = new Image();
+        img.onload = () => {
+          shareRefImage(src, img);
+          const aspect = img.naturalWidth / img.naturalHeight;
+          Object.values(COURSES).forEach((c) => {
+            if ((c.refSource || '') === src) c.mapAspect = aspect;
+          });
+          const needsExtract = !course.path || course.path.length < 8;
+          if (needsExtract && course.pathExtract) {
+            try {
+              const c = document.createElement('canvas');
+              c.width = img.naturalWidth;
+              c.height = img.naturalHeight;
+              const cx = c.getContext('2d', { willReadFrequently: true });
+              cx.drawImage(img, 0, 0);
+              const id = cx.getImageData(0, 0, c.width, c.height);
+              const path = (window.RedPath || RedPath).extractPathFromRgba(
+                id.data, c.width, c.height, course.pathExtract
+              );
+              if (src === 'hanna') applyPathToCourse('hanna_down', reversePath(path));
+              else syncUpDownPaths(src, path);
+              if (state.courseKey === key || COURSES[state.courseKey]?.refSource === src) {
+                updateCourseStatsDisplay();
+              }
+            } catch (_) {}
+          }
+          if (COURSES[state.courseKey]?.refSource === src || state.courseKey === key) {
+            fitMapToCourse();
+            drawCourse();
+          }
+        };
+        img.src = course.refMap.src;
+      });
+    }
+
+    const COURSE_KEY_ALIASES = {
+      shigisan: 'shigisan_up',
+      minoo: 'saruyama_up',
+      saruyama: 'saruyama_up',
+      hanna: 'hanna_down'
+    };
+
+    function courseGroupFromKey(courseKey) {
+      if (courseKey.startsWith('shigisan')) return 'shigisan';
+      if (courseKey.startsWith('saruyama')) return 'saruyama';
+      return 'hanna';
+    }
+
+    function courseDirFromKey(courseKey) {
+      return courseKey.endsWith('_down') ? 'down' : 'up';
+    }
+
+    function courseKeyFromGroupDir(groupId, dir) {
+      const g = COURSE_GROUPS.find((x) => x.id === groupId);
+      if (!g) return 'shigisan_up';
+      if (g.downOnly || dir === 'down') return g.down;
+      return g.up;
+    }
+
+    function syncCourseGroupState() {
+      state.courseGroup = courseGroupFromKey(state.courseKey);
+      state.courseDir = courseDirFromKey(state.courseKey);
+    }
+
+    function populateSelects() {
+      els.carPreset.innerHTML = Object.entries(CAR_PRESETS)
+        .sort((a, b) => a[1].name.localeCompare(b[1].name, 'ja'))
+        .map(([k, v]) => `<option value="${k}">${v.name}</option>`)
+        .join('');
+      renderPartsUI();
+      els.courseSelect.innerHTML = Object.entries(COURSES).map(([k, v]) =>
+        `<option value="${k}">${v.name}</option>`).join('');
+      renderCourseUI();
+    }
+
+    function renderPartsUI() {
+      if (!els.partsContainer) return;
+      els.partsContainer.innerHTML = PART_CATALOG.map((cat, i) => {
+        const val = state[cat.stateKey];
+        const opts = Object.entries(cat.data).map(([k, v]) =>
+          `<option value="${k}"${k === val ? ' selected' : ''}>${v.name}</option>`
+        ).join('');
+        return `
+          <div class="parts-row">
+            <span class="parts-num">${i + 1}</span>
+            <div>
+              <label class="text-[10px] text-slate-500">${cat.label}</label>
+              <select class="part-select w-full bg-motec-bg border border-motec-border rounded px-2 py-1.5 text-sm mt-0.5"
+                data-part-key="${cat.stateKey}">${opts}</select>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function renderCourseUI() {
+      syncCourseGroupState();
+      if (els.courseGroupTabs) {
+        els.courseGroupTabs.innerHTML = COURSE_GROUPS.map((g) => {
+          const active = g.id === state.courseGroup ? ' course-tab active' : ' course-tab';
+          return `<button type="button" class="${active.trim()}" data-group="${g.id}" role="tab">${g.label}</button>`;
+        }).join('');
+      }
+      const g = COURSE_GROUPS.find((x) => x.id === state.courseGroup) || COURSE_GROUPS[0];
+      const btn = els.courseDirToggle;
+      if (btn) {
+        const isDown = state.courseDir === 'down';
+        btn.disabled = !!g.downOnly;
+        btn.textContent = isDown ? '↓ 下り' : '↑ 上り';
+        btn.classList.toggle('active-up', !isDown && !g.downOnly);
+        btn.classList.toggle('active-down', isDown);
+        btn.title = g.downOnly ? '阪奈は下りのみ' : 'タップで上り／下り切替';
+      }
+    }
+
+    function setCourseGroup(groupId) {
+      const g = COURSE_GROUPS.find((x) => x.id === groupId);
+      if (!g) return;
+      const dir = g.downOnly ? 'down' : state.courseDir || 'up';
+      setCourse(courseKeyFromGroupDir(g.id, dir), { skipGroupRender: true });
+      state.courseGroup = g.id;
+      renderCourseUI();
+    }
+
+    function toggleCourseDirection() {
+      const g = COURSE_GROUPS.find((x) => x.id === state.courseGroup);
+      if (!g || g.downOnly) return;
+      const next = state.courseDir === 'up' ? 'down' : 'up';
+      setCourse(courseKeyFromGroupDir(g.id, next), { skipGroupRender: true });
+      renderCourseUI();
+    }
+
+    function setCourse(key, opts = {}) {
+      if (!COURSES[key]) return;
+      state.courseKey = key;
+      syncCourseGroupState();
+      els.courseSelect.value = key;
+      if (!opts.skipGroupRender) renderCourseUI();
+      fitMapToCourse();
+      recalc();
+    }
+
+    function resolveVehicleMass(car, wMod) {
+      let m = car.baseKg + (wMod?.deltaKg || 0) + (WHEELS[state.wheelKey]?.unsprungKg || 0);
+      let Hg = car.Hg * (wMod?.cgFactor ?? 1);
+      if (state.massMode === 'custom' && state.customMassKg >= 700) {
+        m = state.customMassKg;
+      }
+      return { m, Hg };
+    }
+
+    function catalogPowerPs(car) {
+      return Math.round(car.powerKw / PS_TO_KW);
+    }
+
+    function partsPowerPs(car) {
+      const intake = INTAKES[state.intakeKey] || INTAKES.stock;
+      return Math.round(catalogPowerPs(car) * (intake.powerMul || 1));
+    }
+
+    function resolvePowerMultiplier(car) {
+      const target = state.targetPowerPs >= 50 ? state.targetPowerPs : partsPowerPs(car);
+      return (target * PS_TO_KW) / Math.max(car.powerKw, 1);
+    }
+
+    function applyVehicleTune(baseCar, mass, Hg) {
+      const car = { ...baseCar };
+      const pMul = resolvePowerMultiplier(car);
+      car.powerKw = car.powerKw * pMul;
+      car.torqueNm = car.torqueNm * pMul;
+      const aero = AEROS[state.aeroKey] || AEROS.none;
+      const diff = DIFFS[state.diffKey] || DIFFS.open;
+      car.Cd = (car.Cd || 0.3) * (aero.cdMul || 1);
+      car.Lr = (car.Lr || 1.2) * (diff.lrMul || 1);
+      car._tune = {
+        powerMul: pMul,
+        cornerGripMul: (SUSPENSIONS[state.suspKey]?.cornerGrip || 1) * (aero.cornerGrip || 1),
+        muScale: (SUSPENSIONS[state.suspKey]?.muScale || 1) * (WHEELS[state.wheelKey]?.muScale || 1),
+        accelMul: diff.accelMul || 1,
+        brakeCoolMul: (COOLINGS[state.coolKey]?.brakeCoolMul || 1),
+        powerPs: Math.round(car.powerKw / PS_TO_KW)
+      };
+      return normalizeVehicle({ ...car, Hg }, mass);
+    }
+
+    function syncTargetPowerFromSlider(car) {
+      const base = partsPowerPs(car);
+      const pct = state.powerScalePct || 100;
+      state.targetPowerPs = Math.max(50, Math.round(base * pct / 100));
+    }
+
+    function syncSliderFromTargetPower(car) {
+      const base = partsPowerPs(car);
+      if (base > 0 && state.targetPowerPs >= 50) {
+        state.powerScalePct = Math.round((state.targetPowerPs / base) * 100);
+      }
+    }
+
+    function updateTuneUi() {
+      const car = CAR_PRESETS[state.carKey] || CAR_PRESETS.gr86;
+      const wMod = WEIGHTS[state.weightKey] || WEIGHTS.normal;
+      const presetM = car.baseKg + (wMod.deltaKg || 0) + (WHEELS[state.wheelKey]?.unsprungKg || 0);
+      const customMassFocused = document.activeElement === els.customMassKg;
+      const powerFocused = document.activeElement === els.targetPowerPs;
+
+      if (els.customMassKg) {
+        const custom = state.massMode === 'custom';
+        els.customMassKg.disabled = !custom;
+        if (!customMassFocused) {
+          if (!custom) {
+            state.customMassKg = presetM;
+            els.customMassKg.value = presetM;
+          } else if (!state.customMassKg || state.customMassKg < 700) {
+            state.customMassKg = presetM;
+            els.customMassKg.value = presetM;
+          }
+        }
+      }
+
+      const basePs = partsPowerPs(car);
+      if (!state.powerUserSet && !powerFocused) {
+        state.targetPowerPs = basePs;
+        state.powerScalePct = 100;
+      } else if (!powerFocused) {
+        syncSliderFromTargetPower(car);
+      }
+
+      if (els.targetPowerPs && !powerFocused) {
+        els.targetPowerPs.value = state.targetPowerPs;
+      }
+      if (els.powerSlider && document.activeElement !== els.powerSlider) {
+        els.powerSlider.value = Math.min(160, Math.max(70, state.powerScalePct || 100));
+      }
+      if (els.powerVal) {
+        els.powerVal.textContent = `${state.targetPowerPs || partsPowerPs(car)} PS`;
+      }
+      if (els.massHint) {
+        const showCustom = state.massMode === 'custom';
+        els.massHint.textContent = showCustom
+          ? `任意指定 · 純正${car.baseKg}kg / プリセット${presetM}kg`
+          : `プリセット: ${presetM}kg（${wMod.name}）`;
+      }
+    }
+
+    function setMapView(mode) {
+      state.mapView = mode === 'sim' ? 'sim' : 'course';
+      els.mapViewCourse?.classList.toggle('active', state.mapView === 'course');
+      els.mapViewSim?.classList.toggle('active', state.mapView === 'sim');
+      els.mapLegendSim?.classList.toggle('hidden', state.mapView !== 'sim');
+      drawCourse();
+      saveLocal();
+    }
+
+    function fitMapToCourse() {
+      const course = getCourse();
+      if (!course.path?.length) {
+        state.fitZoom = MAP_ZOOM_ABS_MIN;
+        state.mapZoom = 1;
+        state.mapPanX = 0;
+        state.mapPanY = 0;
+        updateMapZoomLabel();
+        return;
+      }
+      const W = els.canvas.getBoundingClientRect().width;
+      const mapH = 520 - 56;
+      const pad = 44;
+      const viewRect = computeCourseRect(course, W, mapH, pad);
+      if (!viewRect) return;
+      let minBx = Infinity, maxBx = -Infinity, minBy = Infinity, maxBy = -Infinity;
+      for (const [u, v] of course.path) {
+        const [bx, by] = uvToCourseBase(u, v, viewRect);
+        minBx = Math.min(minBx, bx);
+        maxBx = Math.max(maxBx, bx);
+        minBy = Math.min(minBy, by);
+        maxBy = Math.max(maxBy, by);
+      }
+      const bw = Math.max(maxBx - minBx, 1);
+      const bh = Math.max(maxBy - minBy, 1);
+      const bcx = (minBx + maxBx) / 2;
+      const bcy = (minBy + maxBy) / 2;
+      const boxW = W - pad * 2;
+      const boxH = mapH - pad * 2;
+      const vcx = pad + boxW / 2;
+      const vcy = pad + boxH / 2;
+      const fitZ = Math.min(
+        MAP_ZOOM_MAX,
+        Math.max(MAP_ZOOM_ABS_MIN, Math.min(boxW / bw, boxH / bh) * 0.92)
+      );
+      state.fitZoom = fitZ;
+      state.mapZoom = fitZ;
+      state.mapPanX = vcx - viewRect.cx - (bcx - viewRect.cx) * state.mapZoom;
+      state.mapPanY = vcy - viewRect.cy - (bcy - viewRect.cy) * state.mapZoom;
+      updateMapZoomLabel();
+    }
+
+    function getVehicle() {
+      const car = CAR_PRESETS[state.carKey] || CAR_PRESETS.gr86;
+      const wMod = WEIGHTS[state.weightKey] || WEIGHTS.normal;
+      const { m, Hg } = resolveVehicleMass(car, wMod);
+      return applyVehicleTune(car, m, Hg);
+    }
+
+    function getEffectiveBrake() {
+      const b = BRAKES[state.brakeKey] || BRAKES.stock;
+      const cm = COOLINGS[state.coolKey]?.brakeCoolMul || 1;
+      return { ...b, coolRate: b.coolRate * cm };
+    }
+
+    function getCourse() {
+      return COURSES[state.courseKey] || COURSES.shigisan_up;
+    }
+
+    function pathDist(a, b) {
+      return Math.hypot(b[0] - a[0], b[1] - a[1]);
+    }
+
+    function applyLiveRedPath(courseKey, path) {
+      if (!path || path.length < 8) return false;
+      const course = COURSES[courseKey];
+      if (!course) return false;
+      const src = course.refSource || courseKey.replace(/_(up|down)$/, '');
+      if (src === 'hanna') applyPathToCourse('hanna_down', reversePath(path));
+      else if (courseKey.endsWith('_up') || src === courseKey) syncUpDownPaths(src, path);
+      else applyPathToCourse(courseKey, path);
+      if (state.courseKey === courseKey || getCourse().refSource === src) updateCourseStatsDisplay();
+      return true;
+    }
+
+    /** 地図抽出時と同じUV→画面変換（画像アスペクト比を維持） */
+    function getMapAspect(course) {
+      const img = refImages[state.courseKey] || refImages[courseRefImageKey(course, state.courseKey)];
+      if (img?.naturalWidth > 0) return img.naturalWidth / img.naturalHeight;
+      return course.mapAspect || 473 / 1024;
+    }
+
+    function computeCourseRect(course, W, mapH, pad) {
+      if (!course.path?.length) return null;
+      const aspect = getMapAspect(course);
+      const mw = W - pad * 2;
+      const mh = mapH - pad * 2;
+      const boxAspect = mw / mh;
+      let dw, dh, dx, dy;
+      if (aspect > boxAspect) {
+        dw = mw;
+        dh = mw / aspect;
+        dx = pad;
+        dy = pad + (mh - dh) / 2;
+      } else {
+        dh = mh;
+        dw = mh * aspect;
+        dx = pad + (mw - dw) / 2;
+        dy = pad;
+      }
+      return { dx, dy, dw, dh, cx: dx + dw / 2, cy: dy + dh / 2 };
+    }
+
+    function uvToCourseBase(u, v, viewRect) {
+      return [viewRect.dx + u * viewRect.dw, viewRect.dy + v * viewRect.dh];
+    }
+
+    function uvToCourseScreen(u, v, viewRect) {
+      const [bx, by] = uvToCourseBase(u, v, viewRect);
+      const s = state.mapZoom;
+      return [
+        viewRect.cx + (bx - viewRect.cx) * s + state.mapPanX,
+        viewRect.cy + (by - viewRect.cy) * s + state.mapPanY
+      ];
+    }
+
+    function updateMapZoomLabel() {
+      const pct = Math.round(state.mapZoom * 100);
+      const minPct = Math.round(getMinZoom() * 100);
+      if (els.mapZoomLabel) {
+        let label = `${pct}%`;
+        if (state.mapZoom <= getMinZoom() + 0.008) label += ' (最小)';
+        els.mapZoomLabel.textContent = label;
+      }
+      if (els.mapZoomOut) {
+        els.mapZoomOut.disabled = state.mapZoom <= getMinZoom() + 0.001;
+        els.mapZoomOut.title = `縮小（下限 ${minPct}% = 全体表示）`;
+      }
+      if (els.mapZoomReset) {
+        els.mapZoomReset.textContent = `${minPct}%`;
+        els.mapZoomReset.title = 'コース全体表示（縮小下限）';
+      }
+    }
+
+    function resetMapView() {
+      fitMapToCourse();
+    }
+
+    function zoomMapAt(clientX, clientY, factor) {
+      const canvas = els.canvas;
+      const rect = canvas.getBoundingClientRect();
+      const mx = clientX - rect.left;
+      const my = clientY - rect.top;
+      const course = getCourse();
+      const viewRect = computeCourseRect(course, rect.width, 520 - 56, 44);
+      if (!viewRect) return;
+      const W = rect.width;
+      const mapH = 520 - 56;
+      const pad = 44;
+      const old = state.mapZoom;
+      const next = clampZoom(old * factor);
+      const wx = (mx - state.mapPanX - viewRect.cx) / old;
+      const wy = (my - state.mapPanY - viewRect.cy) / old;
+      state.mapPanX = mx - viewRect.cx - wx * next;
+      state.mapPanY = my - viewRect.cy - wy * next;
+      state.mapZoom = next;
+      updateMapZoomLabel();
+      drawCourse();
+    }
+
+    /** 弧長 pathFrom/To と Canvas 座標を同期 */
+    function buildTrackLayout(course, W, H, pad, viewRect) {
+      const arc = course.arc || buildArcTable(course.path);
+      const pts = course.path.map(([u, v]) => {
+        if (viewRect) return uvToCourseScreen(u, v, viewRect);
+        return [pad + u * (W - pad * 2), pad + v * (H - pad * 2)];
+      });
+      const edgeLens = [];
+      let pathTotal = 0;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const d = pathDist(pts[i], pts[i + 1]);
+        edgeLens.push(d);
+        pathTotal += d;
+      }
+      const physTotal = course.segments.reduce((a, s) => a + s.len, 0);
+      const segRanges = course.segments.map((s, idx) => ({
+        idx, seg: s, f0: s.pathFrom, f1: s.pathTo,
+        pathStart: s.pathFrom * pathTotal, pathEnd: s.pathTo * pathTotal
+      }));
+      return { pts, edgeLens, pathTotal, physTotal, segRanges, arc };
+    }
+
+    function segIndexAtFrac(layout, frac) {
+      const f = Math.min(1, Math.max(0, frac));
+      for (const r of layout.segRanges) {
+        if (f >= r.f0 && (f < r.f1 - 1e-6 || r.f1 >= 0.999)) return r.idx;
+      }
+      return layout.segRanges.length - 1;
+    }
+
+    function auditCourse(course) {
+      const lenSum = course.segments.reduce((a, s) => a + s.len, 0);
+      const last = course.segments[course.segments.length - 1];
+      const okLen = Math.abs(lenSum - course.totalMeters) < 1;
+      const okPath = last && Math.abs(last.pathTo - 1) < 0.001;
+      const gaps = course.segments.some((s, i) => {
+        if (i === 0) return Math.abs(s.pathFrom) > 0.001;
+        return Math.abs(s.pathFrom - course.segments[i - 1].pathTo) > 0.001;
+      });
+      const typeMismatch = (course.segments || []).filter(
+        (s) => s.profileType && s.geoType && s.profileType !== s.geoType
+      );
+      return { okLen, okPath, gaps: !gaps, lenSum, typeMismatch };
+    }
+
+    function auditSimulation(course, sectors, lapTime, coursePeakKmh, vEffLimit, veh) {
+      const issues = [];
+      const audit = auditCourse(course);
+      if (!audit.okLen) issues.push(`区間距離合計 ${audit.lenSum.toFixed(0)}m ≠ コース ${course.totalMeters}m`);
+      if (!audit.okPath) issues.push('パス区間がS→Fまで未カバー');
+      if (!audit.gaps) issues.push('pathFrom/To の隙間あり');
+      audit.typeMismatch.slice(0, 4).forEach((s) => {
+        issues.push(`${s.id}: 定義=${s.profileType} 形状=${s.geoType}(R${s.geoR}m)`);
+      });
+      if (audit.typeMismatch.length > 4) {
+        issues.push(`他 ${audit.typeMismatch.length - 4} 区間で定義/形状不一致`);
+      }
+
+      let vChainOk = true;
+      let brakeShort = 0;
+      let brakeOnStraight = 0;
+      for (let i = 0; i < sectors.length; i++) {
+        const s = sectors[i];
+        if (i > 0) {
+          const gap = Math.abs(s.vIn - sectors[i - 1].vOut);
+          if (gap > 2.5) {
+            vChainOk = false;
+            issues.push(`${s.id}: 入出速ギャップ ${gap.toFixed(0)}km/h`);
+          }
+        }
+        if (s.brakeShort) {
+          brakeShort++;
+          issues.push(`${s.id}: 制動距離不足 (入${s.vIn.toFixed(0)}→限${s.vLimKmh?.toFixed(0)}km/h)`);
+        }
+        if (s.brakeDist > 0.5 && s.type === 'straight') brakeOnStraight++;
+        const distParts = (s.brakeDist || 0) + (s.cruiseDist || 0);
+        if (Math.abs(distParts - s.len) > 2) {
+          issues.push(`${s.id}: 制動+巡航 ${distParts.toFixed(0)}m ≠ 区間${s.len.toFixed(0)}m`);
+        }
+        if (s.type === 'corner' && s.vLimKmh != null && s.vOut > s.vLimKmh + 1.5) {
+          issues.push(`${s.id}: コーナ出口${s.vOut.toFixed(0)} > 限界${s.vLimKmh.toFixed(0)}km/h`);
+        }
+        if (s.type === 'straight' && s.vMax > (course.peakCeilingKmh ?? 999) + 2) {
+          issues.push(`${s.id}: 直線ピーク${s.vMax.toFixed(0)} > 山岳上限${course.peakCeilingKmh}km/h`);
+        }
+      }
+
+      const ceil = course.peakCeilingKmh;
+      if (ceil != null && coursePeakKmh != null && coursePeakKmh > ceil + 5) {
+        issues.push(`コース最高${coursePeakKmh.toFixed(0)}km/h > 山岳上限${ceil}km/h（ロジック異常）`);
+      }
+      const avgKmh = lapTime > 0 ? (course.totalMeters / 1000) / (lapTime / 3600) : 0;
+      if (course.gradeSign > 0 && avgKmh > 105) {
+        issues.push(`上り平均${avgKmh.toFixed(0)}km/hは速すぎる可能性`);
+      }
+      if (course.gradeSign < 0 && avgKmh > 125) {
+        issues.push(`下り平均${avgKmh.toFixed(0)}km/hは速すぎる可能性`);
+      }
+
+      const lapRef = getCourseEvidence(course)?.lapRef;
+      if (lapRef && lapTime > 0) {
+        if (lapTime < lapRef.minSec * 0.92) {
+          issues.push(`ラップが速すぎ (${formatLap(lapTime)} < 参考${formatLap(lapRef.minSec)})`);
+        } else if (lapTime > lapRef.maxSec * 1.08) {
+          issues.push(`ラップが遅すぎ (${formatLap(lapTime)} > 参考${formatLap(lapRef.maxSec)})`);
+        }
+      }
+
+      const neMax = veh?.NeMax || 9000;
+      for (const s of sectors) {
+        if (s.rpm > 0 && s.rpm > neMax + 200) {
+          issues.push(`${s.id}: Ne ${s.rpm} が回転上限超過`);
+        }
+      }
+
+      const tSum = sectors.reduce((a, s) => a + s.time, 0);
+      const okTime = Math.abs(tSum - lapTime) < 0.05;
+      if (!okTime) issues.push(`区間時間合計 ${tSum.toFixed(2)}s ≠ ラップ ${lapTime.toFixed(2)}s`);
+
+      return {
+        issues,
+        okLen: audit.okLen,
+        okPath: audit.okPath,
+        gaps: audit.gaps,
+        lenSum: audit.lenSum,
+        typeMismatch: audit.typeMismatch.length,
+        vChainOk,
+        brakeShort,
+        brakeOnStraight,
+        okTime,
+        tSum
+      };
+    }
+
+    function getMuTire(tire, wet, tireTemp = 80) {
+      let mu = wet ? tire.muWet : tire.muDry;
+      if (tire.heatFade && tireTemp > tire.fadeTemp) {
+        mu *= tire.fadeMu;
+      }
+      return mu;
+    }
+
+    /** タイヤμ × 山岳公道路面係数 */
+    function getMuEffective(tire, wet, tireTemp, course) {
+      const base = getMuTire(tire, wet, tireTemp);
+      const surf = course?.surfaceMuFactor ?? TOUGE_SURFACE_MU;
+      return base * surf;
+    }
+
+    /** エンジントルク曲線（公称トルク帯＋出力上限でクリップ） */
+    function engineTorqueAtRpm(veh, rpm) {
+      const Tmax = veh.torqueNm;
+      const rpmT = veh.torqueRpm;
+      const rpmTEnd = veh.torqueRpmEnd ?? Math.min(rpmT + 1200, veh.powerRpm - 200);
+      const rpmP = veh.powerRpm;
+      const rpmMax = veh.NeMax;
+      const rpmIdle = 900;
+      if (rpm < rpmIdle) return Tmax * 0.45 * (rpm / rpmIdle);
+      if (rpm < rpmT) {
+        const t = (rpm - rpmIdle) / Math.max(rpmT - rpmIdle, 1);
+        return Tmax * (0.55 + 0.45 * t);
+      }
+      if (rpm <= rpmTEnd) return Tmax;
+      const pMaxW = veh.powerKw * 1000;
+      const Tpower = (pMaxW * 60) / (rpm * 2 * Math.PI);
+      if (rpm >= rpmMax) return Tpower * 0.88;
+      return Math.min(Tmax, Tpower);
+    }
+
+    function enginePowerKwAtRpm(veh, rpm) {
+      return engineTorqueAtRpm(veh, rpm) * rpm * 2 * Math.PI / 60 / 1000;
+    }
+
+    /** 車速→エンジン回転数（トップギア） */
+    function rpmFromSpeedMs(veh, vMs) {
+      return rpmFromSpeedMsGear(veh, vMs, veh.gears.length - 1);
+    }
+
+    function rpmFromSpeedMsGear(veh, vMs, gearIdx) {
+      const circum = veh.tireCircumM || veh.C;
+      const wheelRps = Math.max(vMs, 0.3) / circum;
+      const ig = veh.gears[gearIdx] ?? veh.gearTop;
+      return wheelRps * 60 * veh.finalDrive * ig;
+    }
+
+    function gearRatioTotal(veh, gearIdx) {
+      return veh.finalDrive * (veh.gears[gearIdx] ?? veh.gearTop);
+    }
+
+    function emptyGearHist(veh) {
+      return new Array(veh.gears.length).fill(0);
+    }
+
+    /** 加速時：接地点駆動力が最大になるギア（Ne上限内） */
+    function pickGearForAccel(veh, vMs, rpmCap, powerScale = 1) {
+      let best = veh.gears.length - 1;
+      let bestForce = -1;
+      const v = Math.max(vMs, 0.5);
+      for (let g = 0; g < veh.gears.length; g++) {
+        const rpm = rpmFromSpeedMsGear(veh, v, g);
+        if (rpm > rpmCap + 120) continue;
+        if (rpm < 1400) continue;
+        const Fd = driveForceAtSpeed(veh, v, rpm, powerScale);
+        if (Fd > bestForce) {
+          bestForce = Fd;
+          best = g;
+        }
+      }
+      return best;
+    }
+
+    /** 巡航・表示用：トルク帯中心に近いギア */
+    function pickGearForSpeed(veh, vMs, rpmPrefer) {
+      const rpmTarget = Math.min(
+        rpmPrefer,
+        (veh.torqueRpm + veh.powerRpm) * 0.5
+      );
+      let best = veh.gears.length - 1;
+      let bestScore = Infinity;
+      for (let g = 0; g < veh.gears.length; g++) {
+        const rpm = rpmFromSpeedMsGear(veh, vMs, g);
+        if (rpm > veh.NeMax + 150) continue;
+        let score = Math.abs(rpm - rpmTarget);
+        if (rpm < 2800) score += 1800;
+        if (rpm < 3800) score += 350;
+        if (score < bestScore) {
+          bestScore = score;
+          best = g;
+        }
+      }
+      return best;
+    }
+
+    function summarizeGearHist(veh, gearHist, vInKmh, vOutKmh, neSlider) {
+      let gi = 0;
+      let maxT = 0;
+      for (let g = 0; g < gearHist.length; g++) {
+        if (gearHist[g] > maxT) {
+          maxT = gearHist[g];
+          gi = g;
+        }
+      }
+      if (maxT < 0.02) {
+        gi = pickGearForSpeed(veh, Math.max(vInKmh, vOutKmh, 1) / 3.6, Math.min(neSlider, veh.NeMax * 0.9));
+      }
+      const vMidMs = ((vInKmh + vOutKmh) * 0.5) / 3.6;
+      const rpm = rpmFromSpeedMsGear(veh, vMidMs, gi);
+      const rpmTop = rpmFromSpeedMsGear(veh, vMidMs, veh.gears.length - 1);
+      return {
+        gear: gi + 1,
+        iG: veh.gears[gi],
+        iTotal: gearRatioTotal(veh, gi),
+        rpm: Math.round(rpm),
+        rpmTop: Math.round(rpmTop),
+        gearTier: veh.gearTier || 'model'
+      };
+    }
+
+    function segmentGearInfo(veh, vInKmh, vOutKmh, vPeakKmh, neSlider, gearHist) {
+      if (gearHist?.length) {
+        return summarizeGearHist(veh, gearHist, vInKmh, vOutKmh, neSlider);
+      }
+      const vRefKmh = vPeakKmh ?? Math.max(vInKmh, vOutKmh, 1);
+      const vMs = vRefKmh / 3.6;
+      const rpmPrefer = Math.min(neSlider, veh.NeMax * 0.92);
+      const gi = pickGearForSpeed(veh, vMs, rpmPrefer);
+      const vMidMs = ((vInKmh + vOutKmh) * 0.5) / 3.6;
+      const rpm = rpmFromSpeedMsGear(veh, vMidMs, gi);
+      const rpmTop = rpmFromSpeedMsGear(veh, vMidMs, veh.gears.length - 1);
+      return {
+        gear: gi + 1,
+        iG: veh.gears[gi],
+        iTotal: gearRatioTotal(veh, gi),
+        rpm: Math.round(rpm),
+        rpmTop: Math.round(rpmTop),
+        gearTier: veh.gearTier || 'model'
+      };
+    }
+
+    function cornerLimitMsForSeg(mu, seg, logic, course, gripMul = 1) {
+      const R = seg.R ?? 9999;
+      let vLim = cornerLimitMs(mu, R, 1);
+      if (logic === 'lateral') vLim *= Math.pow(mu / 0.88, 0.42);
+      const grip = (course?.cornerGripFactor ?? 0.92) * (gripMul || 1);
+      vLim *= grip;
+      return vLim;
+    }
+
+    /** 等減速で vTarget まで制動。距離・時間を kinematics で一致 */
+    function brakeToTarget(v, vTarget, availDist, aBrake) {
+      const a = Math.max(aBrake, 0.8);
+      if (v <= vTarget + 0.25) {
+        return { vEnd: v, dist: 0, t: 0, braked: false, short: false };
+      }
+      const dNeed = (v * v - vTarget * vTarget) / (2 * a);
+      if (dNeed <= availDist - 0.05) {
+        return {
+          vEnd: vTarget,
+          dist: dNeed,
+          t: (v - vTarget) / a,
+          braked: true,
+          short: false
+        };
+      }
+      const vEnd = Math.sqrt(Math.max(v * v - 2 * a * availDist, vTarget * vTarget * 0.82));
+      const vClamped = Math.max(vEnd, vTarget);
+      return {
+        vEnd: vClamped,
+        dist: availDist,
+        t: (v - vClamped) / a,
+        braked: true,
+        short: vClamped > vTarget + 0.5
+      };
+    }
+
+    function addBrakeHeat(brakeTemp, vIn, theta, course, brake, isDownhillLogic, logic) {
+      if (isDownhillLogic || (logic === 'mixed' && theta < -0.02)) {
+        const heatGain = course.brakeHeatGain ?? 1.5;
+        return brakeTemp + (vIn * vIn * 0.012 + Math.abs(theta) * 35) * heatGain / brake.coolRate;
+      }
+      return brakeTemp + (vIn * 0.07) / brake.coolRate;
+    }
+
+    /** ギア比限界: V = Ne×60×πD / (i_final×i_top×1000) */
+    function gearLimitedTopSpeedKmh(Ne, veh) {
+      return (Ne * 60 * veh.tireCircumM) / (veh.gearRatioTop * 1000);
+    }
+
+    function theoreticalTopSpeedKmh(Ne, veh) {
+      return gearLimitedTopSpeedKmh(Ne, veh);
+    }
+
+    function wheelPowerKwAtRpm(veh, rpm, powerScale = 1) {
+      const scale = powerScale * (veh.wheelPowerScale ?? 1);
+      return enginePowerKwAtRpm(veh, rpm) * veh.wheelPowerEff * scale;
+    }
+
+    function driveForceBestGear(veh, vMs, rpmCap, powerScale = 1) {
+      const gi = pickGearForAccel(veh, vMs, rpmCap, powerScale);
+      const rpm = Math.min(rpmCap, Math.max(1200, rpmFromSpeedMsGear(veh, Math.max(vMs, 0.5), gi)));
+      return driveForceAtSpeed(veh, Math.max(vMs, 0.5), rpm, powerScale);
+    }
+
+    /** 公称vmaxに空力モデルを照合するホイール出力スケール */
+    function calibrateWheelPowerScale(veh) {
+      if (!veh.vmaxCatalog) return 1;
+      const rpmCap = Math.min(veh.NeMax, veh.powerRpm);
+      let lo = 0.55;
+      let hi = 1.05;
+      for (let i = 0; i < 30; i++) {
+        const scale = (lo + hi) / 2;
+        const vKmh = solvePowerLimitedSpeedMs(veh, rpmCap, 0, scale) * 3.6;
+        if (vKmh > veh.vmaxCatalog + 0.4) hi = scale;
+        else lo = scale;
+      }
+      return Math.round(lo * 1000) / 1000;
+    }
+
+    function applyCatalogVmaxKmh(vKmh, veh) {
+      if (veh.vmaxCatalog == null) return vKmh;
+      return Math.min(vKmh, veh.vmaxCatalog);
+    }
+
+    function normalizeVehicle(car, mass) {
+      const veh = { ...car, m: mass };
+      if (!veh.tireCircumM && veh.tire) {
+        veh.tireCircumM = tireCircumferenceM(veh.tire[0], veh.tire[1], veh.tire[2]);
+      }
+      if (!veh.gears?.length) veh.gears = defaultGearbox(veh.gearTop);
+      veh.gearTop = veh.gears[veh.gears.length - 1];
+      veh.gearRatioTop = veh.finalDrive * veh.gearTop;
+      veh.vPer1000rpm = (60 * veh.tireCircumM) / veh.gearRatioTop;
+      veh.wheelPowerEff = car.wheelPowerEff ?? WHEEL_POWER_EFF;
+      veh.wheelPowerScale = car.wheelPowerScale ?? calibrateWheelPowerScale(veh);
+      return veh;
+    }
+
+    /** 前輪荷重 Wf = W*(Lr/L*cosθ + Hg/L*sinθ) + m*a*Hg/L */
+    function frontLoad(W, L, Lr, Hg, theta, m, a) {
+      const cosT = Math.cos(theta);
+      const sinT = Math.sin(theta);
+      return W * (Lr / L * cosT + Hg / L * sinT) + (m * a * Hg) / L;
+    }
+
+    /** コーナリング限界 v = √(μgR)（山岳路は小Rを過大評価しない） */
+    function cornerLimitMs(mu, R, modifier = 1) {
+      const Reff = Math.min(120, Math.max(R, 12));
+      return Math.sqrt(mu * G * Reff * modifier);
+    }
+
+    function driveForceAtSpeed(veh, vMs, rpm, powerScale = 1) {
+      if (vMs < 0.5) vMs = 0.5;
+      const pk = wheelPowerKwAtRpm(veh, rpm, powerScale);
+      return (pk * 1000) / vMs;
+    }
+
+    function resistances(v, m, Cd, A, Crr, theta) {
+      const Fa = 0.5 * RHO * Cd * A * v * v;
+      const Fr = Crr * m * G;
+      const Fg = m * G * Math.sin(theta);
+      return Fa + Fr + Fg;
+    }
+
+    /** 出力＝空気＋転がり＋勾配抵抗 の平衡点 [m/s]（最適ギア・回転上限連動） */
+    function solvePowerLimitedSpeedMs(veh, neSlider, theta, powerScale = 1) {
+      const rpmCap = Math.min(veh.NeMax, neSlider);
+      const vGearMs = gearLimitedTopSpeedKmh(rpmCap, veh) / 3.6;
+      let lo = 3;
+      let hi = Math.max(vGearMs, 12);
+      for (let n = 0; n < 56; n++) {
+        const mid = (lo + hi) / 2;
+        const Fd = driveForceBestGear(veh, mid, rpmCap, powerScale);
+        const Fr = resistances(mid, veh.m, veh.Cd, veh.A, veh.Crr, theta);
+        if (Fd >= Fr) lo = mid; else hi = mid;
+      }
+      return lo;
+    }
+
+    /** 平坦・テストコース用（メーカー公称キャップあり） */
+    function solveMaxSpeedVehicle(veh, rpm, theta, course, opts = {}) {
+      let v = solvePowerLimitedSpeedMs(veh, rpm, theta);
+      if ((course.logic === 'climb' || course.logic === 'mixed') && theta > 0.01) {
+        const pen = course.climbPenalty ?? 1.15;
+        v /= (1 + theta * pen * 4);
+      }
+      const vGearMs = gearLimitedTopSpeedKmh(Math.min(veh.NeMax, rpm), veh) / 3.6;
+      let vKmh = Math.min(v, vGearMs) * 3.6;
+      if (!opts.skipCatalog) vKmh = applyCatalogVmaxKmh(vKmh, veh);
+      return vKmh;
+    }
+
+    /**
+     * 山岳コース直線の速度上限 [m/s]
+     * 平坦公称vmaxは使わない。勾配・ギア・コース別ピーク上限で決まる。
+     */
+    function segmentStraightVmaxMs(veh, rpm, theta, course) {
+      let vMs = solvePowerLimitedSpeedMs(veh, rpm, theta);
+      if ((course.logic === 'climb' || course.logic === 'mixed') && theta > 0.01) {
+        const pen = course.climbPenalty ?? 1.15;
+        vMs /= (1 + theta * pen * 4);
+      }
+      const vGearMs = gearLimitedTopSpeedKmh(Math.min(veh.NeMax, rpm), veh) / 3.6;
+      vMs = Math.min(vMs, vGearMs);
+      const ceilKmh = course.peakCeilingKmh ?? 130;
+      vMs = Math.min(vMs, ceilKmh / 3.6);
+      return vMs;
+    }
+
+    function computeFlatSpeedLimits(veh, rpm, course) {
+      const vGearLimit = gearLimitedTopSpeedKmh(Math.min(veh.NeMax, rpm), veh);
+      const vPowerPhysics = solvePowerLimitedSpeedMs(veh, rpm, 0, 1) * 3.6;
+      const vPowerLimit = solvePowerLimitedSpeedMs(veh, rpm, 0) * 3.6;
+      const vEffLimit = applyCatalogVmaxKmh(Math.min(vGearLimit, vPowerLimit), veh);
+      return { vGearLimit, vPowerLimit, vPowerPhysics, vEffLimit };
+    }
+
+    function effectiveTopSpeedKmh(veh, rpm, course) {
+      return computeFlatSpeedLimits(veh, rpm, course).vEffLimit;
+    }
+
+    function brakeMuEffective(brake, temp) {
+      if (temp <= brake.maxTemp) return 1;
+      return brake.fadeMu;
+    }
+
+    function brakeDecelMs2(brake, muBrakeFactor, Wf, W, baseDecel) {
+      const frontBias = Math.min(1.10, Math.max(0.60, Wf / (W * 0.5)));
+      const raw = baseDecel * muBrakeFactor * G * frontBias;
+      return Math.min(1.15 * G, raw);
+    }
+
+    function maxAccelMs2(veh, mu, vMs, neSlider, theta = 0) {
+      const traction = mu * G * (veh.Lr / veh.L);
+      const rpmCap = Math.min(veh.NeMax, neSlider);
+      const gi = pickGearForAccel(veh, vMs, rpmCap);
+      const rpm = Math.min(rpmCap, Math.max(1200, rpmFromSpeedMsGear(veh, Math.max(vMs, 0.5), gi)));
+      const engine = (driveForceAtSpeed(veh, Math.max(vMs, 0.5), rpm) - resistances(vMs, veh.m, veh.Cd, veh.A, veh.Crr, theta)) / veh.m;
+      const accelMul = veh._tune?.accelMul || 1;
+      return Math.max(0.15, Math.min(traction, engine) * accelMul);
+    }
+
+    /** 直線区間：台形積分で距離・時間を一致させる（ギア別滞在時間を記録） */
+    function integrateStraight(veh, v0, lenM, vMaxMs, theta, mu, neSlider, gearHist) {
+      let v = v0;
+      let dist = 0;
+      let t = 0;
+      let peak = v0;
+      const dt = 0.04;
+      const rpmCap = Math.min(veh.NeMax, neSlider);
+      const hist = gearHist || emptyGearHist(veh);
+      while (dist < lenM - 0.05) {
+        const gi = pickGearForAccel(veh, v, rpmCap);
+        hist[gi] += dt;
+        const a = maxAccelMs2(veh, mu, v, neSlider, theta);
+        let vNew = Math.min(v + a * dt, vMaxMs);
+        const dStep = Math.min(lenM - dist, (v + vNew) * 0.5 * dt);
+        if (dStep <= 0) break;
+        t += dStep / Math.max((v + vNew) * 0.5, 0.5);
+        dist += dStep;
+        v = vNew;
+        peak = Math.max(peak, v);
+      }
+      return { t, v, peak, gearHist: hist };
+    }
+
+    /**
+     * 直線：加速後、必要なら区間末端でコーナ手前速度まで制動（法定制限なし・vMaxは出力/ギア上限）
+     */
+    function integrateStraightWithEndBrake(veh, v0, lenM, vMaxMs, vLimMs, theta, mu, neSlider, aBrake, simCtx) {
+      if (!lenM || lenM < 0.05) return { t: 0, v: v0, peak: v0, brakeDist: 0, gearHist: emptyGearHist(veh) };
+      if (simCtx?.course?.usePrecisionSim !== false && simCtx.f0 != null) {
+        return integrateStraightPrecision(veh, v0, lenM, {
+          course: simCtx.course,
+          f0: simCtx.f0,
+          f1: simCtx.f1,
+          mu,
+          neSlider,
+          aBrake,
+          ahead: simCtx.ahead || [],
+          vLimNext: vLimMs,
+          gripMul: simCtx.gripMul,
+          logic: simCtx.logic
+        });
+      }
+      if (vLimMs == null || vLimMs >= vMaxMs - 0.5) {
+        const run = integrateStraight(veh, v0, lenM, vMaxMs, theta, mu, neSlider);
+        return { ...run, brakeDist: 0 };
+      }
+      let v = v0;
+      let dist = 0;
+      let t = 0;
+      let peak = v0;
+      let brakeDist = 0;
+      const dt = 0.04;
+      const aDec = Math.max(aBrake, 0.8);
+      const rpmCap = Math.min(veh.NeMax, neSlider);
+      const hist = emptyGearHist(veh);
+      while (dist < lenM - 0.05) {
+        const distRem = lenM - dist;
+        const mustBrake =
+          v > vLimMs + 0.2 &&
+          (v * v - vLimMs * vLimMs) / (2 * aDec) >= distRem - 0.08;
+        let vNew;
+        if (mustBrake) {
+          vNew = Math.max(vLimMs, v - aDec * dt);
+        } else {
+          const gi = pickGearForAccel(veh, v, rpmCap);
+          hist[gi] += dt;
+          const a = maxAccelMs2(veh, mu, v, neSlider, theta);
+          vNew = Math.min(v + a * dt, vMaxMs);
+        }
+        const dStep = Math.min(distRem, Math.max((v + vNew) * 0.5 * dt, 0.02));
+        if (dStep <= 0) break;
+        t += dStep / Math.max((v + vNew) * 0.5, 0.5);
+        dist += dStep;
+        if (mustBrake) brakeDist += dStep;
+        v = vNew;
+        peak = Math.max(peak, v);
+      }
+      return { t, v, peak, brakeDist, gearHist: hist };
+    }
+
+    function computeSimSummary(r, course) {
+      const avgKmh = r.lapTime > 0 ? (course.totalMeters / 1000) / (r.lapTime / 3600) : 0;
+      let fastest = null;
+      let slowest = null;
+      let cornerT = 0;
+      let straightT = 0;
+      for (const s of r.sectors) {
+        if (s.type === 'corner') cornerT += s.time;
+        else straightT += s.time;
+        const vOut = s.vOut ?? s.vMax;
+        if (!fastest || vOut > fastest.v) fastest = { id: s.id, v: vOut };
+        if (!slowest || vOut < slowest.v) slowest = { id: s.id, v: vOut };
+      }
+      const distErr = Math.abs(r.distAccum - course.totalMeters);
+      return {
+        avgKmh,
+        fastest,
+        slowest,
+        cornerT,
+        straightT,
+        distOk: distErr < 15,
+        distErr
+      };
+    }
+
+    function simulate() {
+      const veh = getVehicle();
+      const tire = TIRES[state.tireKey] || TIRES.sport;
+      const brake = getEffectiveBrake();
+      const tune = veh._tune || {};
+      const course = getCourse();
+      const W = veh.m * G;
+      const muBase = getMuTire(tire, state.wet);
+      const muSurface = course.surfaceMuFactor ?? TOUGE_SURFACE_MU;
+      const segments = course.segments;
+      const physTotal = segments.reduce((a, s) => a + s.len, 0);
+
+      let v = (course.startSpeedKmh ?? 38) / 3.6;
+      let t = 0;
+      let brakeTemp = 35;
+      let tireTemp = 70;
+      let coursePeakMs = 0;
+      let distAccum = 0;
+      const sectorResults = [];
+      const brakeZones = [];
+      const pathSpeeds = [];
+      let lastWf = W * (veh.Lr / veh.L);
+      let lastMuB = 1;
+
+      const logic = course.logic;
+      const latMod = logic === 'lateral' ? (course.lateralStress ?? 0.92) : 1;
+      const isDownhillLogic = logic === 'downhill';
+
+      for (let si = 0; si < segments.length; si++) {
+        const s = segments[si];
+        const next = segments[si + 1];
+        const theta = s.theta ?? 0;
+        const len = s.len;
+        const pathFrac0 = s.pathFrom;
+        const pathFrac1 = s.pathTo;
+        const segSpan = pathFrac1 - pathFrac0;
+
+        tireTemp += (v * 3.6 > 60 ? 0.4 : 0.15) * (s.type === 'corner' ? 1.3 : 0.6);
+        tireTemp -= 0.25;
+        const mu = getMuEffective(tire, state.wet, tireTemp, course) * latMod * (tune.muScale || 1);
+
+        const muBf = brakeMuEffective(brake, brakeTemp);
+        const gravAssist = theta < 0 ? G * Math.abs(Math.sin(theta)) * 0.25 : 0;
+        const aBrake = brakeDecelMs2(brake, muBf, lastWf, W, brake.baseDecel) + gravAssist;
+
+        const vInSeg = v;
+        let tSeg = 0;
+        let distUsed = 0;
+        let brakeDist = 0;
+        let cruiseDist = 0;
+        let brakeShort = false;
+        let vLimKmh = null;
+
+        if (s.type === 'corner') {
+          const vLim = cornerLimitMsForSeg(mu, s, logic, course, tune.cornerGripMul);
+          vLimKmh = vLim * 3.6;
+          const distLeft = Math.max(0, len - distUsed);
+          const br = brakeToTarget(v, vLim, distLeft, aBrake);
+          if (br.braked) {
+            tSeg += br.t;
+            distUsed += br.dist;
+            brakeDist += br.dist;
+            v = br.vEnd;
+            brakeShort = brakeShort || br.short;
+            brakeTemp = addBrakeHeat(brakeTemp, vInSeg, theta, course, brake, isDownhillLogic, logic);
+            brakeTemp -= 0.8 * brake.coolRate;
+            const pathFracBrake = pathFrac0 + (distUsed / len) * segSpan;
+            brakeZones.push({
+              segIndex: si,
+              pathFrac: pathFracBrake,
+              vEntry: v * 3.6,
+              vApproach: vInSeg * 3.6,
+              onStraight: false
+            });
+          }
+          const muB = brakeMuEffective(brake, brakeTemp);
+          lastMuB = muB;
+          lastWf = frontLoad(W, veh.L, veh.Lr, veh.Hg, theta, veh.m, -aBrake);
+
+          const cruiseLeft = Math.max(0, len - distUsed);
+          if (cruiseLeft > 0.1) {
+            const vAvg = Math.max((v + vLim) * 0.5, 2.5);
+            tSeg += cruiseLeft / vAvg;
+            cruiseDist = cruiseLeft;
+          }
+          distUsed = len;
+          v = Math.min(v, vLim);
+          const segPeak = vLim * 3.6;
+          const cornerHist = emptyGearHist(veh);
+          const giCorner = pickGearForSpeed(veh, vLim, Math.min(state.Ne, veh.NeMax * 0.88));
+          cornerHist[giCorner] = Math.max(tSeg, 0.05);
+
+          const gear = segmentGearInfo(veh, vInSeg * 3.6, v * 3.6, segPeak, state.Ne, cornerHist);
+          sectorResults.push({
+            id: s.id, type: 'corner',
+            vIn: vInSeg * 3.6, vOut: v * 3.6, vMax: segPeak,
+            len, gradePct: gradePercent(theta), theta, R: s.R, time: tSeg,
+            pathFrac0, pathFrac1,
+            brakeDist, cruiseDist, distUsed, brakeShort, vLimKmh,
+            gear: gear.gear, iG: gear.iG, iTotal: gear.iTotal, rpm: gear.rpm, rpmTop: gear.rpmTop,
+            gearTier: gear.gearTier
+          });
+          pathSpeeds.push({ f: pathFrac0, v: v * 3.6 });
+        } else {
+          const distLeft = Math.max(0, len - distUsed);
+          const vMax = segmentStraightVmaxMs(veh, state.Ne, theta, course);
+          const vLimNext =
+            next?.type === 'corner' ? cornerLimitMsForSeg(mu, next, logic, course, tune.cornerGripMul) : null;
+          if (vLimNext != null) vLimKmh = vLimNext * 3.6;
+          const ahead = scanAheadCornerLimits(si, segments, mu, logic, course, tune.cornerGripMul);
+          const run = integrateStraightWithEndBrake(
+            veh, v, distLeft, vMax, vLimNext, theta, mu, state.Ne, aBrake,
+            {
+              course,
+              f0: pathFrac0,
+              f1: pathFrac1,
+              ahead,
+              gripMul: tune.cornerGripMul,
+              logic
+            }
+          );
+          v = run.v;
+          tSeg += run.t;
+          distUsed = len;
+          brakeDist += run.brakeDist || 0;
+          cruiseDist = Math.max(0, distLeft - brakeDist);
+          if (run.brakeDist > 0.5) {
+            brakeTemp = addBrakeHeat(brakeTemp, run.peak, theta, course, brake, isDownhillLogic, logic);
+            brakeTemp -= 0.5 * brake.coolRate;
+            const pathFracBrake = pathFrac0 + ((distLeft - run.brakeDist) / len) * segSpan;
+            brakeZones.push({
+              segIndex: si,
+              pathFrac: pathFracBrake,
+              vEntry: v * 3.6,
+              vApproach: run.peak * 3.6,
+              onStraight: true
+            });
+            if (vLimNext != null && v > vLimNext + 0.5) brakeShort = true;
+          }
+          const segPeak = run.peak * 3.6;
+          const ceilMs = (course.peakCeilingKmh ?? 999) / 3.6;
+          coursePeakMs = Math.max(coursePeakMs, Math.min(run.peak, ceilMs));
+          lastWf = frontLoad(W, veh.L, veh.Lr, veh.Hg, theta, veh.m, 0.4);
+          brakeTemp -= 0.12 * brake.coolRate;
+
+          const gear = segmentGearInfo(veh, vInSeg * 3.6, v * 3.6, segPeak, state.Ne, run.gearHist);
+          sectorResults.push({
+            id: s.id, type: 'straight',
+            vIn: vInSeg * 3.6, vOut: v * 3.6, vMax: segPeak,
+            len, gradePct: gradePercent(theta), theta, R: null, time: tSeg,
+            pathFrac0, pathFrac1,
+            brakeDist, cruiseDist, distUsed, brakeShort, vLimKmh,
+            gear: gear.gear, iG: gear.iG, iTotal: gear.iTotal, rpm: gear.rpm, rpmTop: gear.rpmTop,
+            gearTier: gear.gearTier
+          });
+          pathSpeeds.push({ f: pathFrac0, v: run.peak * 3.6 });
+        }
+
+        t += tSeg;
+        distAccum += len;
+      }
+
+      const flat = computeFlatSpeedLimits(veh, state.Ne, course);
+      const coursePeakKmh = coursePeakMs * 3.6;
+      const muEffective = muBase * muSurface;
+
+      const summary = computeSimSummary({ lapTime: t, sectors: sectorResults, distAccum }, course);
+      const simAudit = auditSimulation(course, sectorResults, t, coursePeakKmh, flat.vEffLimit, veh);
+
+      state.results = {
+        lapTime: t,
+        coursePeakKmh,
+        peakCeilingKmh: course.peakCeilingKmh,
+        globalVmax: coursePeakKmh,
+        vTheory: flat.vEffLimit,
+        vGearLimit: flat.vGearLimit,
+        vPowerLimit: flat.vPowerLimit,
+        vPowerPhysics: flat.vPowerPhysics,
+        vEffLimit: flat.vEffLimit,
+        vGear: flat.vGearLimit,
+        vPower: flat.vPowerLimit,
+        vPowerRaw: flat.vPowerPhysics,
+        muEffective,
+        wheelPowerScale: veh.wheelPowerScale,
+        vmaxCatalog: veh.vmaxCatalog,
+        wheelPowerEff: veh.wheelPowerEff,
+        vPer1000rpm: veh.vPer1000rpm,
+        gears: veh.gears,
+        sectors: sectorResults,
+        brakeZones,
+        pathSpeeds,
+        brakeTemp,
+        muBase,
+        muBrake: lastMuB,
+        Wf: lastWf,
+        veh,
+        muDisplay: muBase,
+        physTotal,
+        distAccum,
+        summary,
+        audit: auditCourse(course),
+        simAudit
+      };
+    }
+
+    function formatLap(sec) {
+      const m = Math.floor(sec / 60);
+      const s = (sec % 60).toFixed(3);
+      return `${m}:${s.padStart(6, '0')}`;
+    }
+
+    function bump(el) {
+      el.classList.remove('meter-bump');
+      void el.offsetWidth;
+      el.classList.add('meter-bump');
+    }
+
+    function renderMeters() {
+      const r = state.results;
+      if (!r) return;
+
+      els.lapTime.textContent = formatLap(r.lapTime);
+      bump(els.lapTime);
+      const course = getCourse();
+      const sum = r.summary;
+      const gradeSign = (course.gradeSign ?? 1) < 0 ? '下り基調' : '上り基調';
+
+      els.vMaxSeg.textContent = `${r.coursePeakKmh.toFixed(0)} km/h`;
+      bump(els.vMaxSeg);
+      els.vDriveMax.textContent = `${r.vEffLimit.toFixed(0)} km/h`;
+      bump(els.vDriveMax);
+      if (els.vDriveMaxNote) {
+        const physNote =
+          r.vPowerPhysics != null && r.vPowerPhysics > r.vEffLimit + 2
+            ? ` · 出力照合×${r.wheelPowerScale?.toFixed(2) ?? '?'}`
+            : '';
+        els.vDriveMaxNote.textContent =
+          `実効${r.vEffLimit.toFixed(0)}[公称] · ギア理論${r.vGearLimit.toFixed(0)}[計算]${physNote}`;
+      }
+      if (course.peakCeilingKmh) {
+        const sub = document.getElementById('vMaxSegNote');
+        if (sub) sub.textContent = `上限${course.peakCeilingKmh}km/h[モデル] · 実走ピークのみ`;
+      }
+      const tunedPs = r.veh._tune?.powerPs ?? Math.round(r.veh.powerKw / PS_TO_KW);
+      els.muWeight.textContent =
+        `μ ${(r.muEffective ?? r.muDisplay).toFixed(2)}[モデル] / ${r.veh.m.toFixed(0)}kg[公称] / ${tunedPs}PS`;
+      bump(els.muWeight);
+
+      if (els.simSummaryMain) {
+        if (!sum) {
+          els.simSummaryMain.textContent = 'シミュ未実行';
+        } else {
+          els.simSummaryMain.textContent =
+            `平均 ${sum.avgKmh.toFixed(0)} km/h[計算] · 直線 ${sum.straightT.toFixed(1)}s / コーナ ${sum.cornerT.toFixed(1)}s[計算]`;
+        }
+      }
+      if (els.courseStats && sum) {
+        const distTag = sum.distOk ? '距離OK' : `距離差${sum.distErr.toFixed(0)}m`;
+        els.courseStats.textContent =
+          `全長[設定] · ピーク${r.coursePeakKmh.toFixed(0)}/上限${course.peakCeilingKmh ?? '—'}km/h · 勾配[モデル]${gradeSign} · ${distTag}`;
+        if (els.lapDist) {
+          const ev = getCourseEvidence(course);
+          els.lapDist.textContent =
+            `コース全長 ${formatDistM(course.totalMeters)}[設定] · ${ev?.distanceM?.ref?.slice(0, 28) || ''}…`;
+        }
+      }
+
+      els.wfDisplay.textContent = `${(r.Wf / G).toFixed(0)} kgf`;
+      els.brakeTemp.textContent = `${r.brakeTemp.toFixed(0)} ℃`;
+      els.brakeTemp.className = r.brakeTemp > BRAKES[state.brakeKey].maxTemp ? 'font-bold text-red-500 glow-red' : 'font-bold text-motec-accent';
+      els.brakeMu.textContent = r.muBrake.toFixed(2);
+
+      els.sectorGrid.innerHTML = r.sectors.map((s) => {
+        const kind = s.type === 'corner' ? `コーナ R${s.R}m` : '直線';
+        const gradeStr = s.gradePct != null
+          ? `${s.gradePct >= 0 ? '+' : ''}${s.gradePct.toFixed(1)}%[モデル]`
+          : '—';
+        const vIn = s.vIn ?? s.vMax;
+        const vOut = s.vOut ?? s.vMax;
+        const brakeTag = s.brakeDist > 0.5
+          ? `<span class="text-red-400">${s.type === 'straight' ? '先行BR' : 'BR'} ${Math.round(s.brakeDist)}m</span>`
+          : '';
+        const warnTag = s.brakeShort ? '<span class="text-amber-400">制動不足</span>' : '';
+        const limTag = s.vLimKmh != null && s.type === 'straight'
+          ? `<span class="text-slate-600">次R${s.vLimKmh.toFixed(0)}</span>` : '';
+        const gearTier = s.gearTier === 'catalog' ? '公称' : '推定';
+        const gearTag = s.gear
+          ? `${s.gear}速 i=${s.iG?.toFixed(3)} 総${s.iTotal?.toFixed(2)} Ne≈${s.rpm}[${gearTier}]`
+          : '';
+        return `
+        <div class="bg-motec-bg/80 border border-motec-border rounded p-2${s.brakeShort ? ' border-amber-600/50' : ''}">
+          <div class="text-red-400 font-bold">${s.id} <span class="text-slate-500 font-normal">${kind}</span></div>
+          <div class="text-slate-500 tabular-nums">${Math.round(vIn)}→${Math.round(vOut)} km/h[計算] · ${gradeStr} · ${Math.round(s.len || 0)}m[設定按分] ${limTag}</div>
+          <div class="text-red-300/80 tabular-nums">${gearTag}</div>
+          <div class="text-slate-600 tabular-nums flex flex-wrap gap-1">${brakeTag} ${warnTag}</div>
+          <div class="text-motec-ok tabular-nums">${s.time.toFixed(2)} s[計算]</div>
+        </div>`;
+      }).join('');
+
+      els.physicsLog.textContent = buildEvidenceReport(r, course, r.veh, {
+        audit: r.audit,
+        simAudit: r.simAudit,
+        state,
+        summary: sum
+      });
+    }
+
+    function drawCoursePanelBg(ctx, W, mapH, pad) {
+      const x0 = pad, y0 = pad, w = W - pad * 2, h = mapH - pad * 2;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(x0, y0, w, h);
+
+      ctx.strokeStyle = '#e4e4e7';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x0 + 0.5, y0 + 0.5, w - 1, h - 1);
+
+      const gridStep = 32;
+      ctx.strokeStyle = 'rgba(0,0,0,.04)';
+      for (let gx = x0 + gridStep; gx < x0 + w; gx += gridStep) {
+        ctx.beginPath(); ctx.moveTo(gx, y0); ctx.lineTo(gx, y0 + h); ctx.stroke();
+      }
+      for (let gy = y0 + gridStep; gy < y0 + h; gy += gridStep) {
+        ctx.beginPath(); ctx.moveTo(x0, gy); ctx.lineTo(x0 + w, gy); ctx.stroke();
+      }
+
+      ctx.fillStyle = 'rgba(82,82,91,.55)';
+      ctx.font = '600 10px "Hiragino Sans", "Yu Gothic", sans-serif';
+      ctx.fillText('赤線コース（地図オーバーレイなし）', x0 + 8, y0 + 16);
+    }
+
+    function drawTerrain(ctx, course, W, H, pad) {
+      const t = course.terrain || 'ridge';
+      const bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, '#0c1520');
+      bg.addColorStop(1, '#060a10');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      const hills = (cx, cy, rx, ry, color) => {
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(rx, ry));
+        g.addColorStop(0, color);
+        g.addColorStop(1, 'transparent');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+        ctx.fill();
+      };
+
+      if (t === 'ridge') {
+        hills(W * 0.25, H * 0.35, W * 0.35, H * 0.4, 'rgba(18,48,32,.55)');
+        hills(W * 0.78, H * 0.55, W * 0.3, H * 0.35, 'rgba(14,40,28,.5)');
+        hills(W * 0.5, H * 0.75, W * 0.45, H * 0.3, 'rgba(10,32,22,.45)');
+      } else if (t === 'valley') {
+        hills(W * 0.15, H * 0.35, W * 0.22, H * 0.45, 'rgba(16,44,30,.6)');
+        hills(W * 0.88, H * 0.55, W * 0.22, H * 0.45, 'rgba(14,38,26,.55)');
+        ctx.strokeStyle = 'rgba(56,140,210,.4)';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(pad + 8, H * 0.25);
+        ctx.bezierCurveTo(pad + 30, H * 0.45, pad + 15, H * 0.65, pad + 25, H * 0.88);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(100,180,255,.7)';
+        ctx.font = '9px JetBrains Mono';
+        ctx.fillText('箕面川', pad + 6, H * 0.22);
+      } else if (t === 'circuit') {
+        const g = ctx.createRadialGradient(W * 0.5, H * 0.5, 0, W * 0.5, H * 0.5, W * 0.55);
+        g.addColorStop(0, 'rgba(18,28,40,.9)');
+        g.addColorStop(1, 'rgba(8,12,18,.95)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, H);
+      } else {
+        hills(W * 0.85, H * 0.2, W * 0.35, H * 0.4, 'rgba(16,42,28,.55)');
+        const city = ctx.createLinearGradient(0, H * 0.65, 0, H);
+        city.addColorStop(0, 'transparent');
+        city.addColorStop(1, 'rgba(30,35,50,.7)');
+        ctx.fillStyle = city;
+        ctx.fillRect(0, H * 0.62, W, H);
+        for (let i = 0; i < 12; i++) {
+          ctx.fillStyle = `rgba(80,90,110,${0.18 + (i % 5) * 0.06})`;
+          ctx.fillRect(pad + i * ((W - pad * 2) / 12), H * 0.78 + (i % 3) * 8, 8, 12 + (i % 4) * 6);
+        }
+      }
+
+      ctx.strokeStyle = 'rgba(30,45,60,.4)';
+      ctx.lineWidth = 1;
+      for (let x = pad; x < W - pad; x += 32) {
+        ctx.beginPath(); ctx.moveTo(x, pad); ctx.lineTo(x, H - pad); ctx.stroke();
+      }
+      for (let y = pad; y < H - pad; y += 32) {
+        ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - pad, y); ctx.stroke();
+      }
+    }
+
+    function pointAtPathFrac(pts, edgeLens, pathTotal, frac) {
+      const target = frac * pathTotal;
+      let acc = 0;
+      for (let i = 0; i < edgeLens.length; i++) {
+        if (acc + edgeLens[i] >= target) {
+          const t = (target - acc) / edgeLens[i];
+          return [
+            pts[i][0] + (pts[i + 1][0] - pts[i][0]) * t,
+            pts[i][1] + (pts[i + 1][1] - pts[i][1]) * t
+          ];
+        }
+        acc += edgeLens[i];
+      }
+      return pts[pts.length - 1];
+    }
+
+    function speedColor(kmh, vmax) {
+      const t = Math.min(1, kmh / Math.max(vmax, 60));
+      const r = Math.floor(80 + t * 100);
+      const g = Math.floor(180 + t * 50);
+      const b = Math.floor(255 - t * 120);
+      return `rgb(${r},${g},${b})`;
+    }
+
+    function drawRoadRibbon(ctx, p0, p1, color, width) {
+      const dx = p1[0] - p0[0];
+      const dy = p1[1] - p0[1];
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len * width * 0.5;
+      const ny = dx / len * width * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(p0[0] + nx, p0[1] + ny);
+      ctx.lineTo(p1[0] + nx, p1[1] + ny);
+      ctx.lineTo(p1[0] - nx, p1[1] - ny);
+      ctx.lineTo(p0[0] - nx, p0[1] - ny);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+
+    function drawCourse() {
+      const canvas = els.canvas;
+      const ctx = canvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      const H = 520;
+      canvas.height = H * dpr;
+      ctx.scale(dpr, dpr);
+      const W = rect.width;
+      const pad = 44;
+
+      const course = getCourse();
+      const results = state.results;
+      const mapH = H - 56;
+      const viewRect = computeCourseRect(course, W, mapH, pad);
+      ctx.fillStyle = '#e8e8ec';
+      ctx.fillRect(0, 0, W, H);
+      drawCoursePanelBg(ctx, W, mapH, pad);
+      const layout = buildTrackLayout(course, W, mapH, pad, viewRect);
+      const { pts, segRanges } = layout;
+      const courseOnly = state.mapView === 'course';
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(pad, pad, W - pad * 2, mapH - pad * 2);
+      ctx.clip();
+
+      const vmax = results?.globalVmax ?? 120;
+      const arc = course.arc;
+
+      if (!courseOnly) {
+        for (let i = 0; i < pts.length - 1; i++) {
+          const f0 = arc.cum[i] / arc.total;
+          const f1 = arc.cum[i + 1] / arc.total;
+          const si = segIndexAtFrac(layout, (f0 + f1) / 2);
+          const seg = course.segments[si];
+          const isBrake = (results?.brakeZones ?? []).some(b => b.pathFrac >= f0 && b.pathFrac <= f1 + 0.001);
+          let fill;
+          if (isBrake) fill = 'rgba(185,28,28,.35)';
+          else if (seg.type === 'corner') fill = 'rgba(245,158,11,.28)';
+          else fill = 'rgba(220,38,38,.12)';
+          drawRoadRibbon(ctx, pts[i], pts[i + 1], fill, 16);
+        }
+      }
+
+      const strokePath = (color, width, blur) => {
+        if (pts.length < 2) return;
+        ctx.beginPath();
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.shadowColor = color;
+        ctx.shadowBlur = blur;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      };
+
+      if (courseOnly) {
+        strokePath('rgba(24,24,27,.9)', 15, 0);
+        strokePath('#ffffff', 12, 0);
+        strokePath('#dc2626', 7, 1);
+      } else {
+        for (let i = 0; i < pts.length - 1; i++) {
+          const f0 = arc.cum[i] / arc.total;
+          const f1 = arc.cum[i + 1] / arc.total;
+          const si = segIndexAtFrac(layout, (f0 + f1) / 2);
+          const seg = course.segments[si];
+          const isBrake = (results?.brakeZones ?? []).some(b => b.pathFrac >= f0 && b.pathFrac <= f1 + 0.001);
+          const x0 = pts[i][0], y0 = pts[i][1], x1 = pts[i + 1][0], y1 = pts[i + 1][1];
+          ctx.beginPath();
+          ctx.moveTo(x0, y0);
+          ctx.lineTo(x1, y1);
+          if (isBrake) {
+            ctx.strokeStyle = 'rgba(24,24,27,.7)';
+            ctx.lineWidth = 9;
+            ctx.stroke();
+            ctx.strokeStyle = '#b91c1c';
+            ctx.lineWidth = 6;
+            ctx.stroke();
+          } else if (seg.type === 'corner') {
+            ctx.strokeStyle = 'rgba(24,24,27,.65)';
+            ctx.lineWidth = 9;
+            ctx.stroke();
+            ctx.strokeStyle = '#d97706';
+            ctx.lineWidth = 5;
+            ctx.stroke();
+          } else {
+            ctx.strokeStyle = 'rgba(24,24,27,.65)';
+            ctx.lineWidth = 9;
+            ctx.stroke();
+            ctx.strokeStyle = '#dc2626';
+            ctx.lineWidth = 6;
+            ctx.stroke();
+          }
+        }
+      }
+
+      if (!courseOnly) {
+        ctx.setLineDash([6, 8]);
+        ctx.strokeStyle = 'rgba(0,0,0,.12)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let i = 0; i < pts.length - 1; i++) {
+          const mx = (pts[i][0] + pts[i + 1][0]) / 2;
+          const my = (pts[i][1] + pts[i + 1][1]) / 2;
+          if (i === 0) ctx.moveTo(pts[i][0], pts[i][1]);
+          else ctx.quadraticCurveTo(pts[i][0], pts[i][1], mx, my);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      const lmXY = (u, v) => viewRect
+        ? uvToCourseScreen(u, v, viewRect)
+        : [pad + u * (W - pad * 2), pad + v * (mapH - pad * 2)];
+
+      (course.landmarks || []).forEach((lm) => {
+        const [x, y] = lmXY(lm.u, lm.v);
+        ctx.fillStyle = '#e02020';
+        ctx.beginPath();
+        ctx.arc(x, y, courseOnly ? 5 : 6, 0, Math.PI * 2);
+        ctx.fill();
+        if (courseOnly) {
+          ctx.font = 'bold 11px "Hiragino Sans", "Yu Gothic", sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillStyle = '#18181b';
+          ctx.fillText(lm.label, x + 8, y + 4);
+        } else {
+          ctx.fillStyle = '#3f3f46';
+          ctx.font = '600 9px "Hiragino Sans", "Yu Gothic", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(lm.label, x, y - 14);
+          ctx.textAlign = 'left';
+        }
+      });
+
+      const drawPin = (p, label, sub) => {
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], 11, 0, Math.PI * 2);
+        ctx.fillStyle = '#ff3d3d';
+        ctx.shadowColor = '#ff3d3d';
+        ctx.shadowBlur = 18;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 10px JetBrains Mono';
+        ctx.fillText(label, p[0] - 5, p[1] + 4);
+        if (sub) {
+          ctx.fillStyle = '#52525b';
+          ctx.font = '8px JetBrains Mono';
+          ctx.fillText(sub, p[0] - 16, p[1] - 16);
+        }
+      };
+      drawPin(pts[0], 'S', course.startLabel || 'S');
+      drawPin(pts[pts.length - 1], 'F', course.endLabel || 'F');
+
+      const toCanvas = (frac) => {
+        const uv = uvAtArcFrac(course.path, arc, frac);
+        return lmXY(uv[0], uv[1]);
+      };
+
+      if (results && !courseOnly) {
+        results.brakeZones.forEach(bz => {
+          const p = toCanvas(bz.pathFrac);
+          ctx.beginPath();
+          ctx.arc(p[0], p[1], 7, 0, Math.PI * 2);
+          ctx.fillStyle = '#ff3d3d';
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 1.5;
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = '#7f1d1d';
+          ctx.font = 'bold 8px JetBrains Mono';
+          ctx.fillText(`${bz.vApproach?.toFixed(0) || '—'}→${bz.vEntry.toFixed(0)}`, p[0] + 10, p[1] - 4);
+        });
+      }
+
+      ctx.restore();
+
+      const elevH = 48;
+      const ey = H - elevH;
+      ctx.fillStyle = 'rgba(8,12,18,.92)';
+      ctx.fillRect(pad, ey, W - pad * 2, elevH - 6);
+      ctx.strokeStyle = '#1e2a38';
+      ctx.strokeRect(pad, ey, W - pad * 2, elevH - 6);
+      ctx.fillStyle = '#64748b';
+      ctx.font = '8px JetBrains Mono';
+      ctx.fillText('勾配プロファイル (+上り)', pad + 4, ey + 10);
+
+      if (results) {
+        const chartW = W - pad * 2 - 8;
+        results.sectors.forEach(s => {
+          const x0 = pad + 4 + (s.pathFrac0 ?? 0) * chartW;
+          const x1 = pad + 4 + (s.pathFrac1 ?? 1) * chartW;
+          const h = Math.abs(s.theta) * 400 + 4;
+          const up = s.theta >= 0;
+          ctx.fillStyle = up ? 'rgba(255,100,80,.5)' : 'rgba(80,160,255,.45)';
+          ctx.fillRect(x0, up ? ey + 28 - h : ey + 28, x1 - x0, h);
+        });
+      }
+
+      ctx.fillStyle = '#18181b';
+      ctx.font = 'bold 11px JetBrains Mono';
+      ctx.fillText('N', W - pad - 18, pad + 14);
+      ctx.fillStyle = '#52525b';
+      ctx.font = '600 10px "Hiragino Sans", "Yu Gothic", sans-serif';
+      ctx.fillText(course.name, pad + 2, mapH - 6);
+    }
+
+    function readPartStateFromDom() {
+      document.querySelectorAll('.part-select').forEach((sel) => {
+        const key = sel.dataset.partKey;
+        if (key && Object.prototype.hasOwnProperty.call(state, key)) state[key] = sel.value;
+      });
+    }
+
+    function readTuneStateFromDom() {
+      if (els.massMode) state.massMode = els.massMode.value;
+      if (els.customMassKg) state.customMassKg = +els.customMassKg.value || 0;
+      if (els.powerSlider) state.powerScalePct = +els.powerSlider.value || 100;
+      if (els.targetPowerPs) {
+        const v = +els.targetPowerPs.value;
+        if (v >= 50) state.targetPowerPs = v;
+      }
+    }
+
+    function saveLocal() {
+      const data = {
+        carKey: state.carKey,
+        tireKey: state.tireKey,
+        brakeKey: state.brakeKey,
+        weightKey: state.weightKey,
+        suspKey: state.suspKey,
+        wheelKey: state.wheelKey,
+        aeroKey: state.aeroKey,
+        diffKey: state.diffKey,
+        intakeKey: state.intakeKey,
+        coolKey: state.coolKey,
+        massMode: state.massMode,
+        customMassKg: state.customMassKg,
+        powerScalePct: state.powerScalePct,
+        targetPowerPs: state.targetPowerPs,
+        powerUserSet: state.powerUserSet,
+        courseKey: state.courseKey,
+        courseGroup: state.courseGroup,
+        courseDir: state.courseDir,
+        Ne: state.Ne,
+        wet: state.wet,
+        mapView: state.mapView,
+        mapZoom: state.mapZoom,
+        mapPanX: state.mapPanX,
+        mapPanY: state.mapPanY
+      };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        els.saveIndicator.textContent = 'SAVED';
+        els.saveIndicator.className = 'text-motec-ok text-xs';
+      } catch (e) {
+        els.saveIndicator.textContent = 'SAVE ERR';
+      }
+    }
+
+    function loadLocal() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        if (data.carKey && CAR_PRESETS[data.carKey]) state.carKey = data.carKey;
+        if (data.tireKey && TIRES[data.tireKey]) state.tireKey = data.tireKey;
+        if (data.brakeKey && BRAKES[data.brakeKey]) state.brakeKey = data.brakeKey;
+        if (data.weightKey && WEIGHTS[data.weightKey]) state.weightKey = data.weightKey;
+        if (data.suspKey && SUSPENSIONS[data.suspKey]) state.suspKey = data.suspKey;
+        if (data.wheelKey && WHEELS[data.wheelKey]) state.wheelKey = data.wheelKey;
+        if (data.aeroKey && AEROS[data.aeroKey]) state.aeroKey = data.aeroKey;
+        if (data.diffKey && DIFFS[data.diffKey]) state.diffKey = data.diffKey;
+        if (data.intakeKey && INTAKES[data.intakeKey]) state.intakeKey = data.intakeKey;
+        if (data.coolKey && COOLINGS[data.coolKey]) state.coolKey = data.coolKey;
+        if (data.massMode) state.massMode = data.massMode;
+        if (typeof data.customMassKg === 'number') state.customMassKg = data.customMassKg;
+        if (typeof data.powerScalePct === 'number') state.powerScalePct = data.powerScalePct;
+        if (typeof data.targetPowerPs === 'number') state.targetPowerPs = data.targetPowerPs;
+        if (typeof data.powerUserSet === 'boolean') state.powerUserSet = data.powerUserSet;
+        if (data.courseKey) {
+          const k = COURSE_KEY_ALIASES[data.courseKey] || data.courseKey;
+          if (COURSES[k]) state.courseKey = k;
+        }
+        if (data.courseGroup) state.courseGroup = data.courseGroup;
+        if (data.courseDir) state.courseDir = data.courseDir;
+        if (typeof data.Ne === 'number') state.Ne = data.Ne;
+        if (typeof data.wet === 'boolean') state.wet = data.wet;
+        if (data.mapView === 'sim' || data.mapView === 'course') state.mapView = data.mapView;
+        if (typeof data.mapZoom === 'number') state._savedMapZoom = data.mapZoom;
+        if (typeof data.mapPanX === 'number') state.mapPanX = data.mapPanX;
+        if (typeof data.mapPanY === 'number') state.mapPanY = data.mapPanY;
+        syncCourseGroupState();
+        els.carPreset.value = state.carKey;
+        els.courseSelect.value = state.courseKey;
+        els.wetMode.checked = state.wet;
+        if (els.massMode) els.massMode.value = state.massMode;
+        if (els.customMassKg) els.customMassKg.value = state.customMassKg || '';
+        if (els.powerSlider) els.powerSlider.value = state.powerScalePct;
+        if (els.targetPowerPs) els.targetPowerPs.value = state.targetPowerPs || '';
+        renderPartsUI();
+        renderCourseUI();
+        applyCarPreset(state.carKey, true);
+        updateTuneUi();
+        els.rpmSlider.value = state.Ne;
+        els.rpmVal.textContent = state.Ne;
+      } catch (_) {}
+    }
+
+    function applyCarPreset(carKey, keepRpm) {
+      const car = CAR_PRESETS[carKey] || CAR_PRESETS.gr86;
+      state.carKey = carKey in CAR_PRESETS ? carKey : 'gr86';
+      const neMax = car.NeMax || 8500;
+      const neMin = Math.max(5500, neMax - 2500);
+      els.rpmSlider.min = neMin;
+      els.rpmSlider.max = neMax;
+      if (!keepRpm || state.Ne < neMin || state.Ne > neMax) {
+        state.Ne = car.NeDefault || 7000;
+        els.rpmSlider.value = state.Ne;
+      }
+      els.rpmVal.textContent = state.Ne;
+      const veh = getVehicle();
+      const flat = computeFlatSpeedLimits(veh, state.Ne, getCourse());
+      const tunedPs = veh._tune?.powerPs ?? catalogPowerPs(car);
+      const stockPs = catalogPowerPs(car);
+      els.carSpec.textContent =
+        `[公称] ${stockPs}PS · ${car.baseKg}kg · ${car.tire[0]}/${car.tire[1]}R${car.tire[2]}` +
+        ` · [現在] ${tunedPs}PS / ${veh.m.toFixed(0)}kg` +
+        ` · [計算] ギア${flat.vGearLimit.toFixed(0)} 出力${flat.vEffLimit.toFixed(0)}km/h` +
+        (flat.vPowerPhysics > flat.vEffLimit + 2 ? `（物理${flat.vPowerPhysics.toFixed(0)}→×${veh.wheelPowerScale?.toFixed(3)}）` : '') +
+        (car.vmaxCatalog ? ` · [公称]${car.vmaxCatalog}km/h` : '');
+    }
+
+    function recalc() {
+      const prevCar = state.carKey;
+      const prevCourse = state.courseKey;
+      readPartStateFromDom();
+      readTuneStateFromDom();
+      state.carKey = els.carPreset.value;
+      if (prevCar !== state.carKey) state.powerUserSet = false;
+      state.courseKey = els.courseSelect.value;
+      syncCourseGroupState();
+      if (prevCourse !== state.courseKey) {
+        renderCourseUI();
+        fitMapToCourse();
+      }
+      state.wet = els.wetMode.checked;
+      updateMapZoomLabel();
+      updateTuneUi();
+      applyCarPreset(state.carKey, prevCar === state.carKey);
+      state.Ne = +els.rpmSlider.value;
+      els.rpmVal.textContent = state.Ne;
+      const course = getCourse();
+      if (els.courseDesc) els.courseDesc.textContent = course.desc;
+      simulate();
+      updateCourseStatsDisplay();
+      renderMeters();
+      drawCourse();
+      saveLocal();
+    }
+
+    ['carPreset', 'courseSelect', 'rpmSlider', 'wetMode', 'massMode', 'customMassKg'].forEach((id) => {
+      const el = $(id);
+      if (!el) return;
+      el.addEventListener('input', recalc);
+      el.addEventListener('change', recalc);
+    });
+
+    els.targetPowerPs?.addEventListener('input', () => {
+      state.powerUserSet = true;
+      readTuneStateFromDom();
+      const car = CAR_PRESETS[state.carKey] || CAR_PRESETS.gr86;
+      syncSliderFromTargetPower(car);
+      if (els.powerSlider) els.powerSlider.value = state.powerScalePct;
+      recalc();
+    });
+
+    els.powerSlider?.addEventListener('input', () => {
+      state.powerUserSet = true;
+      state.powerScalePct = +els.powerSlider.value || 100;
+      const car = CAR_PRESETS[state.carKey] || CAR_PRESETS.gr86;
+      syncTargetPowerFromSlider(car);
+      if (els.targetPowerPs) els.targetPowerPs.value = state.targetPowerPs;
+      recalc();
+    });
+
+    els.partsContainer?.addEventListener('change', (e) => {
+      if (e.target.classList.contains('part-select')) recalc();
+    });
+
+    els.courseGroupTabs?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-group]');
+      if (btn?.dataset.group) setCourseGroup(btn.dataset.group);
+    });
+    els.courseDirToggle?.addEventListener('click', () => toggleCourseDirection());
+    els.mapViewCourse?.addEventListener('click', () => setMapView('course'));
+    els.mapViewSim?.addEventListener('click', () => setMapView('sim'));
+    els.mapFit?.addEventListener('click', () => { fitMapToCourse(); drawCourse(); saveLocal(); });
+
+    window.addEventListener('resize', () => { fitMapToCourse(); drawCourse(); });
+
+    els.canvas.addEventListener('wheel', (e) => {
+      if (!getCourse().path?.length) return;
+      e.preventDefault();
+      zoomMapAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.14 : 1 / 1.14);
+    }, { passive: false });
+
+    els.canvas.addEventListener('pointerdown', (e) => {
+      if (!getCourse().path?.length || e.button !== 0) return;
+      mapPan.active = true;
+      mapPan.lastX = e.clientX;
+      mapPan.lastY = e.clientY;
+      els.canvas.classList.add('is-panning');
+      els.canvas.setPointerCapture(e.pointerId);
+    });
+    els.canvas.addEventListener('pointermove', (e) => {
+      if (!mapPan.active) return;
+      state.mapPanX += e.clientX - mapPan.lastX;
+      state.mapPanY += e.clientY - mapPan.lastY;
+      mapPan.lastX = e.clientX;
+      mapPan.lastY = e.clientY;
+      drawCourse();
+    });
+    const endPan = (e) => {
+      if (!mapPan.active) return;
+      mapPan.active = false;
+      els.canvas.classList.remove('is-panning');
+      try { els.canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+      saveLocal();
+    };
+    els.canvas.addEventListener('pointerup', endPan);
+    els.canvas.addEventListener('pointercancel', endPan);
+
+    if (els.mapZoomIn) els.mapZoomIn.addEventListener('click', () => {
+      const r = els.canvas.getBoundingClientRect();
+      zoomMapAt(r.left + r.width / 2, r.top + (520 - 56) / 2, 1.25);
+    });
+    if (els.mapZoomOut) els.mapZoomOut.addEventListener('click', () => {
+      const r = els.canvas.getBoundingClientRect();
+      zoomMapAt(r.left + r.width / 2, r.top + (520 - 56) / 2, 1 / 1.25);
+    });
+    if (els.mapZoomReset) els.mapZoomReset.addEventListener('click', () => { resetMapView(); drawCourse(); });
+
+    // PWA service worker (inline blob)
+    if ('serviceWorker' in navigator) {
+      const swCode = `
+        const CACHE='setup-lab-v2';
+        self.addEventListener('install', e => {
+          e.waitUntil(caches.open(CACHE).then(c => c.addAll([
+            './','./index.html','./scripts/red-path-browser.js',
+            './assets/shigisan-ref.png','./assets/minoo-ref.png','./assets/hanna-ref.png'
+          ])));
+          self.skipWaiting();
+        });
+        self.addEventListener('fetch', e => {
+          e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+        });
+      `;
+      try {
+        const blob = new Blob([swCode], { type: 'application/javascript' });
+        const url = URL.createObjectURL(blob);
+        navigator.serviceWorker.register(url).catch(() => {});
+      } catch (_) {}
+    }
+
+    populateSelects();
+    loadLocal();
+    const savedMapZoom = state._savedMapZoom;
+    delete state._savedMapZoom;
+    setMapView(state.mapView);
+    fitMapToCourse();
+    if (typeof savedMapZoom === 'number' && savedMapZoom > getMinZoom()) {
+      state.mapZoom = clampZoom(savedMapZoom);
+      updateMapZoomLabel();
+    }
+    loadRefMaps();
+    recalc();
+  })();
+  </script>
+</body>
+</html>
