@@ -4904,6 +4904,29 @@
     loadRefMaps();
     recalc();
   })();
+
+  window.addEventListener('load', () => {
+    const isHomeApp =
+      window.navigator.standalone === true ||
+      window.matchMedia('(display-mode: standalone)').matches;
+
+    if (!isHomeApp) return;
+
+    const LAST_CHECK_KEY = 'app_latest_check_time';
+    const lastCheck = localStorage.getItem(LAST_CHECK_KEY);
+    const now = Date.now();
+    const twelveHours = 12 * 60 * 60 * 1000;
+
+    if (!lastCheck || now - parseInt(lastCheck, 10) > twelveHours) {
+      localStorage.setItem(LAST_CHECK_KEY, now.toString());
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistration().then((reg) => reg?.update()).catch(() => {});
+      }
+
+      window.location.reload();
+    }
+  });
   </script>
 </body>
 </html>
