@@ -108,11 +108,16 @@
     .gps-power-on { color: #34d399; border-color: #059669; background: rgba(5,150,105,.12); }
     #attackLogList { max-height: 10rem; overflow-y: auto; }
     .attack-record-row { display: grid; grid-template-columns: 1fr auto; gap: 0.35rem 0.5rem; align-items: center; }
+    .attack-record-actions { display: flex; gap: 0.35rem; align-items: center; flex-shrink: 0; }
+    .attack-record-share,
     .attack-record-del {
-      padding: 0.1rem 0.35rem; font-size: 9px; line-height: 1.2;
-      border-radius: 0.2rem; border: 1px solid #334155; color: #64748b;
-      background: transparent; cursor: pointer;
+      padding: 0.15rem 0.4rem; font-size: 9px; line-height: 1.2;
+      border-radius: 0.2rem; border: 1px solid #334155;
+      background: #0a0e14; cursor: pointer; white-space: nowrap;
     }
+    .attack-record-share { color: #e2e8f0; border-color: #3f3f46; }
+    .attack-record-share:hover { border-color: #00e5ff; color: #00e5ff; background: rgba(0,229,255,.08); }
+    .attack-record-del { color: #64748b; background: transparent; }
     .attack-record-del:hover { border-color: #f87171; color: #fca5a5; }
     .parts-tab {
       flex: 1; padding: 0.4rem 0.5rem; font-size: 10px; font-weight: 600;

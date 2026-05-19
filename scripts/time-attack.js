@@ -6,6 +6,44 @@
 
   const LOG_KEY = 'osaka_kodo_attack_log_v2';
   const MAX_LOG = 200;
+  const SHARE_APP_URL = 'https://hrknmb9-debug.github.io/osaka-koudou-simulator/';
+
+  const COURSE_GROUP_LABELS = {
+    shigisan: '信貴山',
+    saruyama: '猿山',
+    hanna: '阪奈',
+    kanjo: '阪神環状',
+    test: 'テスト'
+  };
+
+  function buildShareText(courseName, time, gateName) {
+    return (
+      '【大阪公道シミュレーター】タイムアタック計測完了！\n\n' +
+      `▶︎ コース: ${courseName}\n` +
+      `⏱️ タイム: ${time}\n` +
+      `📍 地点: ${gateName}\n\n` +
+      '#大阪公道シミュレーター #タイムアタック\n'
+    );
+  }
+
+  function openXShare(text) {
+    const xUrl =
+      `https://x.com/intent/post?text=${encodeURIComponent(text)}` +
+      `&url=${encodeURIComponent(SHARE_APP_URL)}`;
+    const a = document.createElement('a');
+    a.href = xUrl;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  function shareToX(courseName, time, gateName) {
+    openXShare(buildShareText(courseName, time, gateName));
+  }
+
+  global.shareToX = shareToX;
 
   function newRecordId() {
     return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -217,6 +255,15 @@
       if (els.logCount) els.logCount.textContent = `(${n})`;
     }
 
+    function shareRecordToX(id) {
+      const entry = loadLog().find((e) => e.id === id);
+      if (!entry) return;
+      const courseName = COURSE_GROUP_LABELS[entry.courseGroup] || entry.courseGroup || '—';
+      let gateName = entry.label || '—';
+      if (entry.testMode) gateName += ' (現地確認)';
+      shareToX(courseName, entry.time || '—', gateName);
+    }
+
     function renderLogList() {
       if (!els.logList) return;
       const entries = loadLog();
@@ -236,8 +283,10 @@
           `<div class="text-motec-ok font-bold tabular-nums text-sm">${time}</div>` +
           `<div class="text-[10px] text-slate-500 truncate">${label}</div>` +
           `<div class="text-[9px] text-slate-600">${date}</div></div>` +
+          `<div class="attack-record-actions">` +
+          `<button type="button" class="attack-record-share" data-share-id="${id}" aria-label="Xで共有">X共有</button>` +
           `<button type="button" class="attack-record-del" data-delete-id="${id}" aria-label="この記録を削除">削除</button>` +
-          `</article>`
+          `</div></article>`
         );
       }).join('');
     }
@@ -668,10 +717,16 @@
     if (els.toggleBtn) els.toggleBtn.addEventListener('click', toggleGps);
     if (els.logList) {
       els.logList.addEventListener('click', (ev) => {
-        const btn = ev.target.closest('[data-delete-id]');
-        if (!btn) return;
+        const shareBtn = ev.target.closest('[data-share-id]');
+        if (shareBtn) {
+          ev.preventDefault();
+          shareRecordToX(shareBtn.getAttribute('data-share-id'));
+          return;
+        }
+        const delBtn = ev.target.closest('[data-delete-id]');
+        if (!delBtn) return;
         ev.preventDefault();
-        deleteRecord(btn.getAttribute('data-delete-id'));
+        deleteRecord(delBtn.getAttribute('data-delete-id'));
       });
     }
     if (els.clearAllBtn) els.clearAllBtn.addEventListener('click', clearAllRecords);
@@ -689,9 +744,10 @@
       isActive: () => active,
       isAutoDirCourse: () => !testMode && isBidirectionalGroup(getCourseGroup()),
       stopGps,
-      reloadLog: renderLogList
+      reloadLog: renderLogList,
+      shareRecordToX
     };
   }
 
-  global.TimeAttack = { init: initTimeAttack, formatTime };
+  global.TimeAttack = { init: initTimeAttack, formatTime, shareToX };
 })(typeof window !== 'undefined' ? window : globalThis);
