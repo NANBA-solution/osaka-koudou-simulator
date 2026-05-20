@@ -6,7 +6,7 @@
 
   const LOG_KEY = 'osaka_kodo_attack_log_v2';
   const MAX_LOG = 200;
-  const SHARE_APP_URL = 'https://hrknmb9-debug.github.io/osaka-koudou-simulator/';
+  const SHARE_APP_URL = 'https://nanba-solution.github.io/osaka-koudou-simulator/';
 
   const COURSE_GROUP_LABELS = {
     shigisan: '信貴山',
@@ -26,50 +26,42 @@
     );
   }
 
-  /** ブラウザ向けフォールバック（Web Share 非対応時） */
-  function openXShareBrowser(text) {
-    const xUrl =
-      `https://x.com/intent/post?text=${encodeURIComponent(text)}` +
-      `&url=${encodeURIComponent(SHARE_APP_URL)}`;
+  function isMobileOrStandalone() {
+    return (
+      /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '') ||
+      window.navigator.standalone === true ||
+      window.matchMedia('(display-mode: standalone)').matches
+    );
+  }
+
+  /** X 投稿画面へ（intent/tweet — モバイルでは X アプリが開く） */
+  function xIntentTweetUrl(text) {
+    const params = new URLSearchParams();
+    params.set('text', text.trim());
+    params.set('url', SHARE_APP_URL);
+    return `https://x.com/intent/tweet?${params.toString()}`;
+  }
+
+  /**
+   * ワンタップで X へ — スマホ/PWA は同一タブ遷移でアプリ Handoff、PC は別タブ
+   * ※ intent/post は iOS でループするため tweet を使用
+   */
+  function shareToX(courseName, time, gateName) {
+    const text = buildShareText(courseName, time, gateName);
+    const intentUrl = xIntentTweetUrl(text);
+
+    if (isMobileOrStandalone()) {
+      window.location.href = intentUrl;
+      return;
+    }
+
     const a = document.createElement('a');
-    a.href = xUrl;
+    a.href = intentUrl;
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
     document.body.appendChild(a);
     a.click();
     a.remove();
-  }
-
-  /**
-   * 共有 — 優先: ネイティブ共有シート（Xアプリ等を選択）
-   * 非対応端末のみブラウザの intent にフォールバック
-   */
-  async function shareToX(courseName, time, gateName) {
-    const text = buildShareText(courseName, time, gateName);
-    const payload = {
-      title: '大阪公道シミュレーター · タイムアタック',
-      text,
-      url: SHARE_APP_URL
-    };
-
-    if (typeof navigator.share === 'function') {
-      const candidates = [
-        payload,
-        { title: payload.title, text: `${text}${SHARE_APP_URL}` },
-        { text: `${text}${SHARE_APP_URL}` }
-      ];
-      for (const data of candidates) {
-        try {
-          if (navigator.canShare && !navigator.canShare(data)) continue;
-          await navigator.share(data);
-          return;
-        } catch (err) {
-          if (err?.name === 'AbortError') return;
-        }
-      }
-    }
-
-    openXShareBrowser(text);
   }
 
   global.shareToX = shareToX;
