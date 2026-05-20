@@ -26,7 +26,8 @@
     );
   }
 
-  function openXShare(text) {
+  /** ブラウザ向けフォールバック（Web Share 非対応時） */
+  function openXShareBrowser(text) {
     const xUrl =
       `https://x.com/intent/post?text=${encodeURIComponent(text)}` +
       `&url=${encodeURIComponent(SHARE_APP_URL)}`;
@@ -39,8 +40,36 @@
     a.remove();
   }
 
-  function shareToX(courseName, time, gateName) {
-    openXShare(buildShareText(courseName, time, gateName));
+  /**
+   * 共有 — 優先: ネイティブ共有シート（Xアプリ等を選択）
+   * 非対応端末のみブラウザの intent にフォールバック
+   */
+  async function shareToX(courseName, time, gateName) {
+    const text = buildShareText(courseName, time, gateName);
+    const payload = {
+      title: '大阪公道シミュレーター · タイムアタック',
+      text,
+      url: SHARE_APP_URL
+    };
+
+    if (typeof navigator.share === 'function') {
+      const candidates = [
+        payload,
+        { title: payload.title, text: `${text}${SHARE_APP_URL}` },
+        { text: `${text}${SHARE_APP_URL}` }
+      ];
+      for (const data of candidates) {
+        try {
+          if (navigator.canShare && !navigator.canShare(data)) continue;
+          await navigator.share(data);
+          return;
+        } catch (err) {
+          if (err?.name === 'AbortError') return;
+        }
+      }
+    }
+
+    openXShareBrowser(text);
   }
 
   global.shareToX = shareToX;
