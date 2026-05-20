@@ -4915,9 +4915,9 @@
     const LAST_CHECK_KEY = 'app_latest_check_time';
     const lastCheck = localStorage.getItem(LAST_CHECK_KEY);
     const now = Date.now();
-    const twelveHours = 12 * 60 * 60 * 1000;
+    const sixHours = 6 * 60 * 60 * 1000;
 
-    if (!lastCheck || now - parseInt(lastCheck, 10) > twelveHours) {
+    if (!lastCheck || now - parseInt(lastCheck, 10) > sixHours) {
       localStorage.setItem(LAST_CHECK_KEY, now.toString());
 
       if ('serviceWorker' in navigator) {
