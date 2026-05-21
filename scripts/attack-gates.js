@@ -91,6 +91,32 @@
     return !!(g?.up && g?.down);
   }
 
+  function gateCenterPoint(gateDef) {
+    if (!gateDef) return null;
+    if (gateDef.center) return { lat: gateDef.center.lat, lng: gateDef.center.lng };
+    if (gateDef.pA && gateDef.pB) {
+      return {
+        lat: (gateDef.pA.lat + gateDef.pB.lat) / 2,
+        lng: (gateDef.pA.lng + gateDef.pB.lng) / 2
+      };
+    }
+    return null;
+  }
+
+  function getAttackGateCoords(groupId, dir) {
+    const gates = global.ATTACK_GATES;
+    if (!gates?.[groupId]) return null;
+    let branch;
+    if (dir === 'lap' && gates[groupId].lap) branch = gates[groupId].lap;
+    else branch = gates[groupId][dir] || gates[groupId].down || gates[groupId].up;
+    if (!branch) return null;
+    return {
+      name: branch.name,
+      start: gateCenterPoint(branch.start),
+      goal: gateCenterPoint(branch.goal)
+    };
+  }
+
   global.ATTACK_GATES = {
     test: {
       lap: {
@@ -145,4 +171,5 @@
   };
 
   global.isAttackBidirectional = isBidirectionalGroup;
+  global.getAttackGateCoords = getAttackGateCoords;
 })(typeof window !== 'undefined' ? window : globalThis);

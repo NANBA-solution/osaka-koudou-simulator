@@ -50,6 +50,28 @@
     }
     select, input[type=range] { accent-color: #00e5ff; }
     #courseCanvas { touch-action: manipulation; cursor: default; }
+    .course-gate-coords {
+      position: absolute; top: 0.3rem; right: 0.3rem; z-index: 2;
+      max-width: 3.5rem; padding: 0.15rem 0.2rem;
+      font-size: 6px; line-height: 1.15; color: #52525b;
+      background: rgba(255,255,255,.88); border: 1px solid #d4d4d8;
+      border-radius: 0.15rem; pointer-events: none;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+    }
+    .course-gate-coords__title {
+      font-size: 6px; font-weight: 700; letter-spacing: 0.04em; color: #a1a1aa;
+      margin: 0 0 0.1rem;
+    }
+    .course-gate-coords__row { margin: 0 0 0.12rem; }
+    .course-gate-coords__row:last-child { margin-bottom: 0; }
+    .course-gate-coords__label {
+      display: inline; font-weight: 800; font-size: 6px; margin-right: 0.1rem;
+    }
+    .course-gate-coords__label--s { color: #059669; }
+    .course-gate-coords__label--f { color: #dc2626; }
+    .course-gate-coords__val {
+      display: block; color: #27272a; tabular-nums; letter-spacing: -0.02em;
+    }
     .course-tab {
       flex: 1; min-width: 0; padding: 0.5rem 0.35rem; font-size: 11px; line-height: 1.3;
       border-radius: 0.375rem; border: 1px solid #1e2a38; background: #0a0e14; color: #94a3b8;
@@ -84,6 +106,7 @@
       border-color: #2a3544;
     }
     .course-map-sheet {
+      position: relative;
       background: #f4f4f5; border: 2px solid #d4d4d8; border-radius: 0.5rem;
       box-shadow: inset 0 0 0 1px #fff, 0 4px 24px rgba(0,0,0,.35);
     }
@@ -450,6 +473,7 @@
           <select id="courseSelect" class="sr-only" aria-hidden="true" tabindex="-1"></select>
           <div class="course-map-sheet p-0.5 mx-1 mb-1">
             <canvas id="courseCanvas" class="w-full rounded-sm bg-white block" height="520"></canvas>
+            <aside id="courseGateCoords" class="course-gate-coords" aria-label="計測地点座標"></aside>
           </div>
           <div class="grid grid-cols-3 gap-2 p-2 text-[10px] border-t border-zinc-600/60 mt-1 text-zinc-400">
             <div><span class="text-slate-500">Wf (前輪荷重)</span><br/><span id="wfDisplay" class="text-motec-accent font-bold">—</span></div>
@@ -2139,7 +2163,7 @@
       // 阪奈上り：Apple Maps 赤線（RSタイチ〜旧道スイッチバック）
       hanna_up: {
         name: '阪奈 上り（赤線コース）',
-        desc: '🔴府道8号（中垣内）S→赤線スイッチバック→旧道頂上F',
+        desc: '府道8号（中垣内）→赤線スイッチバック→旧道頂上F',
         refMap: { src: 'assets/hanna-up-map.png' },
         refSource: 'hanna_up',
         mapAspect: 473 / 1024,
@@ -2156,10 +2180,9 @@
         usePrecisionSim: true,
         startSpeedKmh: 38,
         peakCeilingKmh: 125,
-        startLabel: '府道8号 🔴S',
+        startLabel: '府道8号',
         endLabel: '旧道頂上 F',
         landmarks: [
-          { u: 0.1734, v: 0.5078, label: 'S' },
           { u: 0.55, v: 0.582, label: '中垣内' },
           { u: 0.391, v: 0.548, label: '残念石付近' },
           { u: 0.8943, v: 0.4551, label: 'F' }
@@ -2780,7 +2803,7 @@
         ...baseU,
         refSource: 'hanna_up',
         name: '阪奈 上り',
-        desc: '府道8号🔴S→赤線スイッチバック · 約4.2km',
+        desc: '府道8号→赤線スイッチバック · 約4.2km',
         gradeSign: 1,
         logic: 'mixed',
         terrain: 'ridge',
@@ -3039,6 +3062,7 @@
       mapViewCourse: $('mapViewCourse'),
       mapViewSim: $('mapViewSim'),
       mapLegendSim: $('mapLegendSim'),
+      courseGateCoords: $('courseGateCoords'),
       attackCourseTabs: $('attackCourseTabs'),
       attackDirToggle: $('attackDirToggle'),
       partsSection: $('partsSection'),
@@ -3312,6 +3336,35 @@
       });
     }
 
+    function formatGateCoordLines(pt) {
+      if (!pt || typeof pt.lat !== 'number' || typeof pt.lng !== 'number') {
+        return '<span class="course-gate-coords__val">—</span>';
+      }
+      return (
+        `<span class="course-gate-coords__val">${pt.lat.toFixed(6)}<br>${pt.lng.toFixed(6)}</span>`
+      );
+    }
+
+    function renderCourseGateCoords() {
+      const el = els.courseGateCoords;
+      if (!el) return;
+      const coords = globalThis.getAttackGateCoords?.(state.courseGroup, state.courseDir);
+      if (!coords) {
+        el.innerHTML = '';
+        return;
+      }
+      el.innerHTML =
+        '<p class="course-gate-coords__title">計測地点</p>' +
+        '<div class="course-gate-coords__row">' +
+        '<span class="course-gate-coords__label course-gate-coords__label--s">S</span>' +
+        formatGateCoordLines(coords.start) +
+        '</div>' +
+        '<div class="course-gate-coords__row">' +
+        '<span class="course-gate-coords__label course-gate-coords__label--f">F</span>' +
+        formatGateCoordLines(coords.goal) +
+        '</div>';
+    }
+
     function renderCourseUI() {
       syncCourseGroupState();
       if (els.courseGroupTabs) {
@@ -3325,6 +3378,7 @@
         testActive: timeAttack?.isTestMode?.()
       });
       renderAttackCourseUI();
+      renderCourseGateCoords();
     }
 
     function selectAttackCourse(groupId) {
@@ -4775,8 +4829,12 @@
           ctx.fillText(sub, p[0] - 16, p[1] - 16);
         }
       };
-      drawPin(pts[0], 'S', course.startLabel || 'S');
-      drawPin(pts[pts.length - 1], 'F', course.endLabel || 'F');
+      const pinSub = (label) => {
+        if (!label || label === 'S' || label === 'F') return '';
+        return label;
+      };
+      drawPin(pts[0], 'S', pinSub(course.startLabel));
+      drawPin(pts[pts.length - 1], 'F', pinSub(course.endLabel));
 
       const toCanvas = (frac) => {
         const uv = uvAtArcFrac(course.path, arc, frac);
@@ -5042,7 +5100,7 @@
     // PWA service worker (inline blob)
     if ('serviceWorker' in navigator) {
       const swCode = `
-        const CACHE='setup-lab-v15';
+        const CACHE='setup-lab-v16';
         self.addEventListener('install', e => {
           e.waitUntil(caches.open(CACHE).then(c => c.addAll([
             './','./index.html','./scripts/red-path-browser.js',
