@@ -26,7 +26,7 @@ export function buildRedMask(data, w, h, crop) {
   return mask;
 }
 
-function buildPinMask(data, w, h, crop) {
+export function buildPinMask(data, w, h, crop) {
   const { y0, y1, x0, x1 } = crop;
   const mask = new Uint8Array(w * h);
   for (let y = y0; y < y1; y++) {
@@ -38,7 +38,7 @@ function buildPinMask(data, w, h, crop) {
   return mask;
 }
 
-function dilate(mask, w, h, radius) {
+export function dilate(mask, w, h, radius) {
   if (!radius) return mask;
   const out = new Uint8Array(mask);
   for (let y = radius; y < h - radius; y++) {
@@ -58,7 +58,7 @@ function dilate(mask, w, h, radius) {
   return out;
 }
 
-function findPinBlobs(pinMask, w, h) {
+export function findPinBlobs(pinMask, w, h) {
   const visited = new Uint8Array(w * h);
   const pins = [];
   const flood = (sx, sy) => {
@@ -122,7 +122,7 @@ function pickPinByCorner(pins, corner, w, h) {
   return best;
 }
 
-function nearestRed(mask, w, h, tx, ty, maxR = 80) {
+export function nearestRed(mask, w, h, tx, ty, maxR = 80) {
   const ix = Math.round(tx);
   const iy = Math.round(ty);
   if (ix >= 0 && iy >= 0 && ix < w && iy < h && mask[iy * w + ix]) return { x: ix, y: iy };
@@ -137,7 +137,7 @@ function nearestRed(mask, w, h, tx, ty, maxR = 80) {
   return null;
 }
 
-function geodesicFarthest(mask, w, h, start) {
+export function geodesicFarthest(mask, w, h, start) {
   const dist = new Int32Array(w * h);
   dist.fill(-1);
   const q = [[start.x, start.y]];
@@ -181,7 +181,7 @@ function reachableFrom(mask, w, h, sx, sy) {
   return vis;
 }
 
-function maskReachableFromStart(baseMask, w, h, startU, startV, dilateR) {
+export function maskReachableFromStart(baseMask, w, h, startU, startV, dilateR) {
   const dilated = dilate(baseMask, w, h, dilateR);
   const s = nearestRed(dilated, w, h, startU * w, startV * h);
   if (!s) return null;
@@ -217,7 +217,7 @@ function concatChains(chains) {
   return out.length ? out : null;
 }
 
-function bfsPath(mask, w, h, start, end) {
+export function bfsPath(mask, w, h, start, end) {
   const key = (x, y) => y * w + x;
   const endK = key(end.x, end.y);
   const prev = new Map();
@@ -248,7 +248,7 @@ function bfsPath(mask, w, h, start, end) {
   return null;
 }
 
-function resampleChain(chain, w, h, nPts) {
+export function resampleChain(chain, w, h, nPts) {
   if (!chain || chain.length < 2) return null;
   const lens = [0];
   for (let i = 1; i < chain.length; i++) {

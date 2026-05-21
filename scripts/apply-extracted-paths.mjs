@@ -24,6 +24,11 @@ const meta = {
     start: '善根寺町付近 S',
     end: '府道8号 F'
   },
+  hanna_up: {
+    desc: '🔴府道8号（中垣内）S→赤線スイッチバック→旧道頂上F',
+    start: '府道8号 🔴S',
+    end: '旧道頂上 F'
+  },
   kanjo: {
     desc: '赤線抽出：外回り1周 · 阪神高速1号環状線',
     start: 'スタート／ゴール',
@@ -31,30 +36,49 @@ const meta = {
   }
 };
 
-for (const [id, pts] of Object.entries(paths)) {
-  if (!pts?.length) continue;
-  const pathStr = '[\n' + pts.map(([u, v]) => `          [${u},${v}]`).join(',\n') + '\n        ]';
-  let re;
-  if (id === 'kanjo') {
-    re =
-      /(\/\/ 阪神環状：滑らかな外回り1周[\s\S]*?path:\s*)\[[\s\S]*?\](\s*\n\s*\},?\s*\n\s*\/\/ 阪奈)/m;
-    if (!re.test(html)) {
-      console.error('path block not found:', id, '(run integrate-kanjo-index.mjs first)');
-      continue;
-    }
-    html = html.replace(re, `$1${pathStr}$2`);
-  } else {
-    re = new RegExp(`(${id}:[\\s\\S]*?path:\\s*)\\[[\\s\\S]*?\\](?=,\\s*physicsProfile)`, 'm');
+const pathArrayRe = '(?:\\s*\\[[^\\]]+\\],?)+';
+
+for (const ids of [['hanna_up'], ['hanna'], ['shigisan', 'saruyama', 'kanjo']]) {
+  for (const id of ids) {
+    const pts = paths[id];
+    if (!pts?.length) continue;
+    const pathStr = '[\n' + pts.map(([u, v]) => `          [${u},${v}]`).join(',\n') + '\n        ]';
+    let re;
+    if (id === 'kanjo') {
+      re =
+        /(\/\/ 阪神環状：滑らかな外回り1周[\s\S]*?path:\s*)\[[\s\S]*?\](\s*\n\s*\},?\s*\n\s*\/\/ 阪奈)/m;
+      if (!re.test(html)) {
+        console.error('path block not found:', id, '(run integrate-kanjo-index.mjs first)');
+        continue;
+      }
+      html = html.replace(re, `$1${pathStr}$2`);
+    } else if (id === 'hanna_up') {
+    re = new RegExp(
+      `(// 阪奈上り[\\s\\S]*?path:\\s*)\\[${pathArrayRe}\\s*\\](?=\\s*\\n\\s*\\},)`,
+      'm'
+    );
     if (!re.test(html)) {
       console.error('path block not found:', id);
       continue;
     }
-    html = html.replace(re, `$1${pathStr}`);
-  }
+      html = html.replace(re, `$1${pathStr}`);
+    } else {
+      re = new RegExp(
+        `(\\n      ${id}:\\s*\\{[\\s\\S]*?path:\\s*)\\[${pathArrayRe}\\s*\\](?=\\s*\\n\\s*\\},)`,
+        'm'
+      );
+      if (!re.test(html)) {
+        console.error('path block not found:', id);
+        continue;
+      }
+      html = html.replace(re, `$1${pathStr}`);
+    }
 
-  const [su, sv] = pts[0];
-  const [fu, fv] = pts[pts.length - 1];
-  const lmRe = new RegExp(`(${id}:[\\s\\S]*?landmarks:\\s*)\\[([\\s\\S]*?)\\](?=,\\s*path:)`);
+    const [su, sv] = pts[0];
+    const [fu, fv] = pts[pts.length - 1];
+    const lmAnchor =
+      id === 'hanna_up' ? '// 阪奈上り' : `\\n      ${id}:\\s*\\{`;
+    const lmRe = new RegExp(`(${lmAnchor}[\\s\\S]*?landmarks:\\s*)\\[([\\s\\S]*?)\\](?=,\\s*path:)`);
   const lmMatch = html.match(lmRe);
   if (lmMatch) {
     let inner = lmMatch[2];
@@ -79,7 +103,8 @@ for (const [id, pts] of Object.entries(paths)) {
     html = html.replace(new RegExp(`(${id}:[\\s\\S]*?startLabel:\\s*)'[^']*'`), `$1'${m.start}'`);
     html = html.replace(new RegExp(`(${id}:[\\s\\S]*?endLabel:\\s*)'[^']*'`), `$1'${m.end}'`);
   }
-  console.log('patched', id, pts.length, 'pts');
+    console.log('patched', id, pts.length, 'pts');
+  }
 }
 
 writeFileSync(join(root, 'index.html'), html);

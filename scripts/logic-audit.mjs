@@ -197,6 +197,7 @@ const CEIL = {
   shigisan_down: 140,
   saruyama_up: 110,
   saruyama_down: 125,
+  hanna_up: 125,
   hanna_down: 155
 };
 

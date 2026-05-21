@@ -19,6 +19,7 @@ const LAP_REF = {
   shigisan_down: { min: 165, max: 245 },
   saruyama_up: { min: 130, max: 215 },
   saruyama_down: { min: 125, max: 210 },
+  hanna_up: { min: 155, max: 245 },
   hanna_down: { min: 145, max: 235 },
   kanjo_lap: { min: 175, max: 295, peakMin: 195, peakMax: 230 }
 };
@@ -335,14 +336,16 @@ const COURSES = {
   shigisan_down: { m: 4200, grip: 0.92, sign: -1, ceil: 140 },
   saruyama_up: { m: 3100, grip: 0.91, sign: 1, ceil: 110 },
   saruyama_down: { m: 3100, grip: 0.91, sign: -1, ceil: 125 },
+  hanna_up: { m: 3300, grip: 0.92, sign: 1, ceil: 125 },
   hanna_down: { m: 4400, grip: 0.92, sign: -1, ceil: 155 }
 };
 
 for (const [key, cfg] of Object.entries(COURSES)) {
   const base = key.replace(/_(up|down)$/, '');
-  const path = paths[base];
+  let path = paths[base];
+  if (key === 'hanna_up') path = paths.hanna_up;
   if (!path) continue;
-  const p = key.endsWith('_down') ? path.slice().reverse() : path;
+  const p = key.endsWith('_down') && key !== 'hanna_up' ? path.slice().reverse() : path;
   const r = simulateCourse(p, cfg.m, cfg.grip, scale, cfg.sign, cfg.ceil);
   const ref = LAP_REF[key];
   const ok = ref && r.t >= ref.min * 0.92 && r.t <= ref.max * 1.08;

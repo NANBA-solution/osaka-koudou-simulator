@@ -60,6 +60,11 @@
       }
     },
     hanna: {
+      up: {
+        name: '阪奈道路 · 上り',
+        start: roadCenter(34.702292, 135.652744),
+        goal: roadCenter(34.704923, 135.656437)
+      },
       down: {
         name: '阪奈道路 · 下り',
         start: roadCenter(34.704923, 135.656437),

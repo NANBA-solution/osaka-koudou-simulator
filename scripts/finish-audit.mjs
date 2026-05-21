@@ -25,7 +25,11 @@ function carBlocks() {
 function kanjoBlock() {
   const i = html.indexOf('// 阪神環状：滑らかな外回り1周');
   if (i < 0) return '';
-  const j = html.indexOf('// 阪奈府道8号', i);
+  const j = html.indexOf('// 阪奈上り', i);
+  if (j < 0) {
+    const j2 = html.indexOf('// 阪奈府道8号', i);
+    return j2 > i ? html.slice(i, j2) : '';
+  }
   return j > i ? html.slice(i, j) : '';
 }
 
@@ -38,7 +42,8 @@ const required = [
   'assets/shigisan-ref.png',
   'assets/minoo-ref.png',
   'assets/hanna-ref.png',
-  'assets/kanjo-ref.png'
+  'assets/kanjo-ref.png',
+  'assets/hanna-up-map.png'
 ];
 for (const f of required) {
   if (!existsSync(join(root, f))) fail.push(`必須ファイル欠落: ${f}`);
@@ -72,21 +77,25 @@ for (const { key, body } of cars) {
 }
 
 // ── コース（ベース定義 → 実行時に up/down / lap 生成）──
-const baseCourses = ['shigisan', 'saruyama', 'hanna', 'kanjo'];
+const baseCourses = ['shigisan', 'saruyama', 'hanna', 'hanna_up', 'kanjo'];
 for (const ck of baseCourses) {
   const pathRe = new RegExp(`${ck}:\\s*\\{[\\s\\S]*?path:\\s*\\[`, 'm');
   if (!pathRe.test(html)) fail.push(`コース ${ck}: 埋め込み path なし`);
 }
-if (!html.includes('registerUpDownVariants(') || !html.includes('registerHannaDownVariant()')) {
+if (!html.includes('registerUpDownVariants(') || !html.includes('registerHannaVariants()')) {
   fail.push('コース variant 登録処理欠落');
 }
 if (!html.includes('registerKanjoLapVariant()')) fail.push('registerKanjoLapVariant 欠落');
+if (!html.includes('registerHannaVariants()')) fail.push('registerHannaVariants 欠落');
+if (html.includes('delete COURSES.hanna_up')) {
+  fail.push('hanna_up: 登録直後に delete しており上りコースが消える');
+}
 for (const v of [
-  'shigisan_up', 'shigisan_down', 'saruyama_up', 'saruyama_down', 'hanna_down', 'kanjo_lap'
+  'shigisan_up', 'shigisan_down', 'saruyama_up', 'saruyama_down', 'hanna_up', 'hanna_down', 'kanjo_lap'
 ]) {
   if (!html.includes(v)) fail.push(`variant キー ${v} がソースに未登場`);
 }
-pass(`コース base ${baseCourses.length} + variant 6`);
+pass(`コース base ${baseCourses.length} + variant 7`);
 
 for (const src of ['shigisan', 'saruyama', 'hanna', 'kanjo']) {
   if (!paths[src]?.length || paths[src].length < 8) fail.push(`extracted-paths ${src}: 点数不足`);
