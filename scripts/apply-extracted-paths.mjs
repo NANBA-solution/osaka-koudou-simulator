@@ -64,7 +64,7 @@ for (const ids of [['hanna_up'], ['hanna'], ['shigisan', 'saruyama', 'kanjo']]) 
       html = html.replace(re, `$1${pathStr}`);
     } else {
       re = new RegExp(
-        `(\\n      ${id}:\\s*\\{[\\s\\S]*?path:\\s*)\\[${pathArrayRe}\\s*\\](?=\\s*\\n\\s*\\},)`,
+        `(\\n      ${id}:\\s*\\{[\\s\\S]*?path:\\s*)\\[${pathArrayRe}\\s*\\](?=\\s*\\n\\s*(?:physicsProfile:|\\},))`,
         'm'
       );
       if (!re.test(html)) {
