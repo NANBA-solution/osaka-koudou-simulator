@@ -49,9 +49,7 @@
       background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.03) 2px, rgba(0,0,0,.03) 4px);
     }
     select, input[type=range] { accent-color: #00e5ff; }
-    #courseCanvas { touch-action: none; cursor: grab; }
-    #courseCanvas.is-panning { cursor: grabbing; }
-    .map-zoom-btn { min-width: 2.25rem; min-height: 2rem; }
+    #courseCanvas { touch-action: manipulation; cursor: default; }
     .course-tab {
       flex: 1; min-width: 0; padding: 0.5rem 0.35rem; font-size: 11px; line-height: 1.3;
       border-radius: 0.375rem; border: 1px solid #1e2a38; background: #0a0e14; color: #94a3b8;
@@ -443,16 +441,6 @@
               </div>
             </div>
             <p id="courseMapStats" class="text-[10px] text-red-300/90 tabular-nums">全長 — · S—F — · — pt</p>
-            <div class="flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-500">
-              <span class="text-slate-600">ドラッグ移動 · 縮小下限=全体表示</span>
-              <span class="flex flex-wrap items-center gap-1">
-                <button type="button" id="mapFit" class="px-2 py-1 rounded border border-zinc-600 bg-zinc-900/80 hover:border-red-500 text-red-300" title="コース全体を表示">全体</button>
-                <button type="button" id="mapZoomOut" class="map-zoom-btn px-2 py-1 rounded border border-zinc-600 bg-zinc-900/80 hover:border-red-500 text-zinc-300" title="縮小（下限あり）">−</button>
-                <button type="button" id="mapZoomReset" class="px-2 py-1 rounded border border-zinc-600 bg-zinc-900/80 hover:border-red-500 text-red-300 min-w-[3rem]" title="コース全体表示（縮小下限）">全体</button>
-                <button type="button" id="mapZoomIn" class="map-zoom-btn px-2 py-1 rounded border border-zinc-600 bg-zinc-900/80 hover:border-red-500 text-zinc-300" title="拡大">＋</button>
-                <span id="mapZoomLabel" class="text-red-300 tabular-nums w-11 text-center">100%</span>
-              </span>
-            </div>
             <p id="mapLegendSim" class="hidden flex flex-wrap gap-3 text-[10px] text-slate-500">
               <span><span class="inline-block w-3 h-0.5 bg-red-500 align-middle"></span> 直線</span>
               <span><span class="inline-block w-3 h-0.5 bg-amber-400 align-middle"></span> コーナ</span>
@@ -2962,14 +2950,6 @@
       }
     }
 
-    function getMinZoom() {
-      return Math.max(MAP_ZOOM_ABS_MIN, state.fitZoom || MAP_ZOOM_ABS_MIN);
-    }
-
-    function clampZoom(z) {
-      return Math.min(MAP_ZOOM_MAX, Math.max(getMinZoom(), z));
-    }
-
     // ─── State ───
     const state = {
       carKey: 'gr86',
@@ -2993,18 +2973,11 @@
       Ne: 7000,
       wet: false,
       mapView: 'course',
-      mapZoom: 1,
-      fitZoom: 1,
-      mapPanX: 0,
-      mapPanY: 0,
       results: null
     };
 
     let timeAttack = null;
 
-    const mapPan = { active: false, lastX: 0, lastY: 0 };
-    const MAP_ZOOM_MAX = 5;
-    const MAP_ZOOM_ABS_MIN = 0.35;
 
     const refImages = {};
 
@@ -3066,11 +3039,6 @@
       mapViewCourse: $('mapViewCourse'),
       mapViewSim: $('mapViewSim'),
       mapLegendSim: $('mapLegendSim'),
-      mapFit: $('mapFit'),
-      mapZoomIn: $('mapZoomIn'),
-      mapZoomOut: $('mapZoomOut'),
-      mapZoomReset: $('mapZoomReset'),
-      mapZoomLabel: $('mapZoomLabel'),
       attackCourseTabs: $('attackCourseTabs'),
       attackDirToggle: $('attackDirToggle'),
       partsSection: $('partsSection'),
@@ -3255,10 +3223,6 @@
         Ne: 7000,
         wet: false,
         mapView: 'course',
-        mapZoom: 1,
-        fitZoom: 1,
-        mapPanX: 0,
-        mapPanY: 0,
         results: null
       });
       try {
@@ -3517,45 +3481,7 @@
     }
 
     function fitMapToCourse() {
-      const course = getCourse();
-      if (!course.path?.length) {
-        state.fitZoom = MAP_ZOOM_ABS_MIN;
-        state.mapZoom = 1;
-        state.mapPanX = 0;
-        state.mapPanY = 0;
-        updateMapZoomLabel();
-        return;
-      }
-      const W = els.canvas.getBoundingClientRect().width;
-      const mapH = 520 - 56;
-      const pad = 44;
-      const viewRect = computeCourseRect(course, W, mapH, pad);
-      if (!viewRect) return;
-      let minBx = Infinity, maxBx = -Infinity, minBy = Infinity, maxBy = -Infinity;
-      for (const [u, v] of course.path) {
-        const [bx, by] = uvToCourseBase(u, v, viewRect);
-        minBx = Math.min(minBx, bx);
-        maxBx = Math.max(maxBx, bx);
-        minBy = Math.min(minBy, by);
-        maxBy = Math.max(maxBy, by);
-      }
-      const bw = Math.max(maxBx - minBx, 1);
-      const bh = Math.max(maxBy - minBy, 1);
-      const bcx = (minBx + maxBx) / 2;
-      const bcy = (minBy + maxBy) / 2;
-      const boxW = W - pad * 2;
-      const boxH = mapH - pad * 2;
-      const vcx = pad + boxW / 2;
-      const vcy = pad + boxH / 2;
-      const fitZ = Math.min(
-        MAP_ZOOM_MAX,
-        Math.max(MAP_ZOOM_ABS_MIN, Math.min(boxW / bw, boxH / bh) * 0.92)
-      );
-      state.fitZoom = fitZ;
-      state.mapZoom = fitZ;
-      state.mapPanX = vcx - viewRect.cx - (bcx - viewRect.cx) * state.mapZoom;
-      state.mapPanY = vcy - viewRect.cy - (bcy - viewRect.cy) * state.mapZoom;
-      updateMapZoomLabel();
+      /* コース表示は computeCourseRect で全体フィット固定（パン・ズームなし） */
     }
 
     function getVehicle() {
@@ -3603,79 +3529,66 @@
     function computeCourseRect(course, W, mapH, pad) {
       if (!course.path?.length) return null;
       const aspect = getMapAspect(course);
-      const mw = W - pad * 2;
-      const mh = mapH - pad * 2;
-      const boxAspect = mw / mh;
-      let dw, dh, dx, dy;
-      if (aspect > boxAspect) {
-        dw = mw;
-        dh = mw / aspect;
+      const boxW = W - pad * 2;
+      const boxH = mapH - pad * 2;
+      let minU = 1;
+      let maxU = 0;
+      let minV = 1;
+      let maxV = 0;
+      for (const [u, v] of course.path) {
+        if (u < minU) minU = u;
+        if (u > maxU) maxU = u;
+        if (v < minV) minV = v;
+        if (v > maxV) maxV = v;
+      }
+      const margin = 0.04;
+      const du = Math.max(maxU - minU, 1e-6);
+      const dv = Math.max(maxV - minV, 1e-6);
+      minU -= du * margin;
+      maxU += du * margin;
+      minV -= dv * margin;
+      maxV += dv * margin;
+      const pathAspect = (du * aspect) / dv;
+      const boxAspect = boxW / boxH;
+      let dw;
+      let dh;
+      let dx;
+      let dy;
+      if (pathAspect > boxAspect) {
+        dw = boxW;
+        dh = boxW / pathAspect;
         dx = pad;
-        dy = pad + (mh - dh) / 2;
+        dy = pad + (boxH - dh) / 2;
       } else {
-        dh = mh;
-        dw = mh * aspect;
-        dx = pad + (mw - dw) / 2;
+        dh = boxH;
+        dw = boxH * pathAspect;
+        dx = pad + (boxW - dw) / 2;
         dy = pad;
       }
-      return { dx, dy, dw, dh, cx: dx + dw / 2, cy: dy + dh / 2 };
+      return {
+        dx,
+        dy,
+        dw,
+        dh,
+        cx: dx + dw / 2,
+        cy: dy + dh / 2,
+        minU,
+        maxU,
+        minV,
+        maxV
+      };
     }
 
     function uvToCourseBase(u, v, viewRect) {
-      return [viewRect.dx + u * viewRect.dw, viewRect.dy + v * viewRect.dh];
+      const du = viewRect.maxU - viewRect.minU || 1;
+      const dv = viewRect.maxV - viewRect.minV || 1;
+      const uN = (u - viewRect.minU) / du;
+      const vN = (v - viewRect.minV) / dv;
+      return [viewRect.dx + uN * viewRect.dw, viewRect.dy + vN * viewRect.dh];
     }
 
     function uvToCourseScreen(u, v, viewRect) {
-      const [bx, by] = uvToCourseBase(u, v, viewRect);
-      const s = state.mapZoom;
-      return [
-        viewRect.cx + (bx - viewRect.cx) * s + state.mapPanX,
-        viewRect.cy + (by - viewRect.cy) * s + state.mapPanY
-      ];
-    }
-
-    function updateMapZoomLabel() {
-      const pct = Math.round(state.mapZoom * 100);
-      const minPct = Math.round(getMinZoom() * 100);
-      if (els.mapZoomLabel) {
-        let label = `${pct}%`;
-        if (state.mapZoom <= getMinZoom() + 0.008) label += ' (最小)';
-        els.mapZoomLabel.textContent = label;
-      }
-      if (els.mapZoomOut) {
-        els.mapZoomOut.disabled = state.mapZoom <= getMinZoom() + 0.001;
-        els.mapZoomOut.title = `縮小（下限 ${minPct}% = 全体表示）`;
-      }
-      if (els.mapZoomReset) {
-        els.mapZoomReset.textContent = `${minPct}%`;
-        els.mapZoomReset.title = 'コース全体表示（縮小下限）';
-      }
-    }
-
-    function resetMapView() {
-      fitMapToCourse();
-    }
-
-    function zoomMapAt(clientX, clientY, factor) {
-      const canvas = els.canvas;
-      const rect = canvas.getBoundingClientRect();
-      const mx = clientX - rect.left;
-      const my = clientY - rect.top;
-      const course = getCourse();
-      const viewRect = computeCourseRect(course, rect.width, 520 - 56, 44);
-      if (!viewRect) return;
-      const W = rect.width;
-      const mapH = 520 - 56;
-      const pad = 44;
-      const old = state.mapZoom;
-      const next = clampZoom(old * factor);
-      const wx = (mx - state.mapPanX - viewRect.cx) / old;
-      const wy = (my - state.mapPanY - viewRect.cy) / old;
-      state.mapPanX = mx - viewRect.cx - wx * next;
-      state.mapPanY = my - viewRect.cy - wy * next;
-      state.mapZoom = next;
-      updateMapZoomLabel();
-      drawCourse();
+      return uvToCourseBase(u, v, viewRect);
     }
 
     /** 弧長 pathFrom/To と Canvas 座標を同期 */
@@ -4957,9 +4870,6 @@
         courseDir: state.courseDir,
         Ne: state.Ne,
         mapView: state.mapView,
-        mapZoom: state.mapZoom,
-        mapPanX: state.mapPanX,
-        mapPanY: state.mapPanY,
         partsOpen: !!els.partsSection?.open
       };
       try {
@@ -5001,9 +4911,6 @@
         if (data.courseDir) state.courseDir = data.courseDir;
         if (typeof data.Ne === 'number') state.Ne = data.Ne;
         if (data.mapView === 'sim' || data.mapView === 'course') state.mapView = data.mapView;
-        if (typeof data.mapZoom === 'number') state._savedMapZoom = data.mapZoom;
-        if (typeof data.mapPanX === 'number') state.mapPanX = data.mapPanX;
-        if (typeof data.mapPanY === 'number') state.mapPanY = data.mapPanY;
         if (els.partsSection && typeof data.partsOpen === 'boolean') {
           els.partsSection.open = data.partsOpen;
         }
@@ -5061,7 +4968,6 @@
         fitMapToCourse();
       }
       state.wet = false;
-      updateMapZoomLabel();
       updateTuneUi();
       applyCarPreset(state.carKey, prevCar === state.carKey);
       state.Ne = +els.rpmSlider.value;
@@ -5130,56 +5036,13 @@
     els.resetAllBtn?.addEventListener('click', resetAllSettings);
     els.mapViewCourse?.addEventListener('click', () => setMapView('course'));
     els.mapViewSim?.addEventListener('click', () => setMapView('sim'));
-    els.mapFit?.addEventListener('click', () => { fitMapToCourse(); drawCourse(); saveLocal(); });
 
-    window.addEventListener('resize', () => { fitMapToCourse(); drawCourse(); });
-
-    els.canvas.addEventListener('wheel', (e) => {
-      if (!getCourse().path?.length) return;
-      e.preventDefault();
-      zoomMapAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.14 : 1 / 1.14);
-    }, { passive: false });
-
-    els.canvas.addEventListener('pointerdown', (e) => {
-      if (!getCourse().path?.length || e.button !== 0) return;
-      mapPan.active = true;
-      mapPan.lastX = e.clientX;
-      mapPan.lastY = e.clientY;
-      els.canvas.classList.add('is-panning');
-      els.canvas.setPointerCapture(e.pointerId);
-    });
-    els.canvas.addEventListener('pointermove', (e) => {
-      if (!mapPan.active) return;
-      state.mapPanX += e.clientX - mapPan.lastX;
-      state.mapPanY += e.clientY - mapPan.lastY;
-      mapPan.lastX = e.clientX;
-      mapPan.lastY = e.clientY;
-      drawCourse();
-    });
-    const endPan = (e) => {
-      if (!mapPan.active) return;
-      mapPan.active = false;
-      els.canvas.classList.remove('is-panning');
-      try { els.canvas.releasePointerCapture(e.pointerId); } catch (_) {}
-      saveLocal();
-    };
-    els.canvas.addEventListener('pointerup', endPan);
-    els.canvas.addEventListener('pointercancel', endPan);
-
-    if (els.mapZoomIn) els.mapZoomIn.addEventListener('click', () => {
-      const r = els.canvas.getBoundingClientRect();
-      zoomMapAt(r.left + r.width / 2, r.top + (520 - 56) / 2, 1.25);
-    });
-    if (els.mapZoomOut) els.mapZoomOut.addEventListener('click', () => {
-      const r = els.canvas.getBoundingClientRect();
-      zoomMapAt(r.left + r.width / 2, r.top + (520 - 56) / 2, 1 / 1.25);
-    });
-    if (els.mapZoomReset) els.mapZoomReset.addEventListener('click', () => { resetMapView(); drawCourse(); });
+    window.addEventListener('resize', () => drawCourse());
 
     // PWA service worker (inline blob)
     if ('serviceWorker' in navigator) {
       const swCode = `
-        const CACHE='setup-lab-v14';
+        const CACHE='setup-lab-v15';
         self.addEventListener('install', e => {
           e.waitUntil(caches.open(CACHE).then(c => c.addAll([
             './','./index.html','./scripts/red-path-browser.js',
@@ -5229,14 +5092,7 @@
 
     populateSelects();
     loadLocal();
-    const savedMapZoom = state._savedMapZoom;
-    delete state._savedMapZoom;
     setMapView(state.mapView);
-    fitMapToCourse();
-    if (typeof savedMapZoom === 'number' && savedMapZoom > getMinZoom()) {
-      state.mapZoom = clampZoom(savedMapZoom);
-      updateMapZoomLabel();
-    }
     loadRefMaps();
     recalc();
   })();
