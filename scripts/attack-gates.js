@@ -10,7 +10,44 @@
 
   const HALF_WIDTH_M = 10;
 
-  /** 東西フォールバック用（OSM取得失敗時） */
+  const toRad = (d) => (d * Math.PI) / 180;
+  const toDeg = (r) => (r * 180) / Math.PI;
+
+  /** 起点から方位角・距離で移動（road-gate.js と同式） */
+  function destinationPoint(lat, lng, bearingDeg, distanceM) {
+    const R = 6371000;
+    const brng = toRad(bearingDeg);
+    const lat1 = toRad(lat);
+    const lng1 = toRad(lng);
+    const lat2 = Math.asin(
+      Math.sin(lat1) * Math.cos(distanceM / R) +
+      Math.cos(lat1) * Math.sin(distanceM / R) * Math.cos(brng)
+    );
+    const lng2 =
+      lng1 +
+      Math.atan2(
+        Math.sin(brng) * Math.sin(distanceM / R) * Math.cos(lat1),
+        Math.cos(distanceM / R) - Math.sin(lat1) * Math.sin(lat2)
+      );
+    return { lat: toDeg(lat2), lng: toDeg(lng2) };
+  }
+
+  function segmentBearingDeg(a, b) {
+    const y = toRad(b.lat - a.lat);
+    const x = toRad(b.lng - a.lng) * Math.cos(toRad((a.lat + b.lat) / 2));
+    return (toDeg(Math.atan2(x, y)) + 360) % 360;
+  }
+
+  /** 道路方位に直角なゲート（オフライン／OSM失敗時） */
+  function gatePerpendicularAt(lat, lng, roadBearingDeg, halfWidthM = HALF_WIDTH_M) {
+    const gateBearing = (roadBearingDeg + 90) % 360;
+    return {
+      pA: destinationPoint(lat, lng, gateBearing, halfWidthM),
+      pB: destinationPoint(lat, lng, (gateBearing + 180) % 360, halfWidthM)
+    };
+  }
+
+  /** 東西フォールバック用（道路方位不明時） */
   function gateAt(lat, lng, halfSpanLng = 0.0001) {
     return {
       pA: { lat, lng: lng - halfSpanLng },
@@ -18,23 +55,38 @@
     };
   }
 
-  /** OSM 道路読み取り用（中心点のみ登録） */
-  function roadCenter(lat, lng) {
+  /** OSM 道路読み取り用（中心点＋道路直角フォールバック） */
+  function roadCenter(lat, lng, roadBearingDeg) {
+    const fallback =
+      roadBearingDeg != null
+        ? gatePerpendicularAt(lat, lng, roadBearingDeg)
+        : gateAt(lat, lng);
     return {
       autoRoad: true,
       center: { lat, lng },
       halfWidthM: HALF_WIDTH_M,
-      fallback: gateAt(lat, lng)
+      fallback
     };
   }
+
+  /** 阪奈上り S/F（府道8号・赤線コース） */
+  const HANNA_UP_S = { lat: 34.70454, lng: 135.65035 };
+  const HANNA_UP_F = { lat: 34.706508, lng: 135.653153 };
+  const HANNA_UP_ROAD_BEARING = segmentBearingDeg(HANNA_UP_S, HANNA_UP_F);
+
+  /** 阪奈下り S/F（南ループ経由・hanna-ref コース） */
+  const HANNA_DOWN_S = { lat: 34.704923, lng: 135.656437 };
+  const HANNA_DOWN_F = { lat: 34.702292, lng: 135.652744 };
+  const HANNA_DOWN_ROAD_BEARING = segmentBearingDeg(HANNA_DOWN_S, HANNA_DOWN_F);
 
   const TEST_GATE_LINE = {
     pA: { lat: 34.696439, lng: 135.609434 },
     pB: { lat: 34.696941, lng: 135.612101 }
   };
 
-  /** 上り・下りの2端点ゲート — 最初に跨いだ方で方向を自動判定 */
+  /** 信貴山・猿山のみ：2端点ゲートで最初の通過から方向自動。阪奈は上り／下りを手動切替 */
   function isBidirectionalGroup(groupId) {
+    if (groupId === 'hanna') return false;
     const g = global.ATTACK_GATES?.[groupId];
     return !!(g?.up && g?.down);
   }
@@ -62,13 +114,13 @@
     hanna: {
       up: {
         name: '阪奈道路 · 上り',
-        start: roadCenter(34.702292, 135.652744),
-        goal: roadCenter(34.704923, 135.656437)
+        start: roadCenter(HANNA_UP_S.lat, HANNA_UP_S.lng, HANNA_UP_ROAD_BEARING),
+        goal: roadCenter(HANNA_UP_F.lat, HANNA_UP_F.lng, HANNA_UP_ROAD_BEARING)
       },
       down: {
         name: '阪奈道路 · 下り',
-        start: roadCenter(34.704923, 135.656437),
-        goal: roadCenter(34.702292, 135.652744)
+        start: roadCenter(HANNA_DOWN_S.lat, HANNA_DOWN_S.lng, HANNA_DOWN_ROAD_BEARING),
+        goal: roadCenter(HANNA_DOWN_F.lat, HANNA_DOWN_F.lng, HANNA_DOWN_ROAD_BEARING)
       }
     },
     saruyama: {

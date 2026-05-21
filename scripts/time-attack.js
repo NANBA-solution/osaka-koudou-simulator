@@ -352,7 +352,7 @@
 
     function gateSourceLabel(src) {
       if (src === 'openstreetmap') return ' · 道路方位OSM';
-      if (src === 'fallback') return ' · 東西フォールバック';
+      if (src === 'fallback') return ' · オフラインゲート';
       return '';
     }
 
