@@ -235,6 +235,9 @@
     };
 
     function setGpsPower(on) {
+      if (els.timerPulse) {
+        els.timerPulse.classList.toggle('measuring-pulse', on);
+      }
       if (els.gpsPower) {
         els.gpsPower.textContent = on ? 'GPS ON' : 'GPS OFF';
         els.gpsPower.className = 'gps-power ' + (on ? 'gps-power-on' : 'gps-power-off');
@@ -266,7 +269,7 @@
 
     function setTimerClass(mode) {
       if (!els.time) return;
-      const base = 'attack-timer font-black tabular-nums tracking-widest ';
+      const base = 'attack-timer speed-text font-black tabular-nums tracking-widest ';
       if (mode === 'racing') els.time.className = base + 'text-motec-ok glow-cyan';
       else if (mode === 'finished') els.time.className = base + 'text-sky-400 glow-cyan';
       else els.time.className = base + 'text-red-400 glow-red';
