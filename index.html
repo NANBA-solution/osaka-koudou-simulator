@@ -370,7 +370,7 @@
       <p class="equip-ad-banner__body">
         &gt; 峠・公道のドライ路面。超高グリップタイヤで横Gを確保せよ。
       </p>
-      <a href="https://www.amazon.co.jp/s?k=%E3%83%80%E3%83%B3%E3%83%AD%E3%83%83%E3%83%97+DIREZZA+ZIII+%E3%83%8F%E3%82%A4%E3%82%B0%E3%83%AA%E3%83%83%E3%83%97&amp;tag=irohack0d-22"
+      <a href="https://www.amazon.co.jp/s?k=%E3%82%BF%E3%82%A4%E3%83%A4+%EF%BC%91%EF%BC%99%EF%BC%95&amp;crid=U2Q9CR7J64IJ&amp;sprefix=%E3%82%BF%E3%82%A4%E3%83%A4+195%2Caps%2C368&amp;ref=nb_sb_noss_1&amp;tag=irohack0d-22"
          target="_blank"
          rel="noopener noreferrer sponsored"
          class="equip-ad-banner__link">
@@ -428,36 +428,41 @@
           </div>
         </section>
 
-        <section class="cyber-panel rounded-lg p-4 space-y-3">
-          <h2 class="text-xs neon-text uppercase tracking-widest border-b border-motec-border pb-2">Vehicle Base</h2>
-          <label class="block text-[10px] text-slate-500">車種プリセット</label>
-          <select id="carPreset" class="w-full bg-motec-bg border border-motec-border rounded px-2 py-1.5 text-sm"></select>
-          <p id="carSpec" class="text-[10px] text-slate-500 leading-relaxed border-t border-motec-border pt-2"></p>
-          <label class="block text-[10px] text-slate-500 mt-2">Ne (max RPM)</label>
-          <input type="range" id="rpmSlider" min="5500" max="9000" step="100" class="w-full" />
-          <span id="rpmVal" class="text-xs text-motec-accent">7000</span>
+        <details class="parts-fold cyber-panel rounded-lg" id="vehicleSection" open>
+          <summary>
+            <span class="neon-text">Vehicle Base</span>
+            <span class="parts-fold-chevron" aria-hidden="true">▼</span>
+          </summary>
+          <div class="parts-fold-body space-y-3">
+            <label class="block text-[10px] text-slate-500">車種プリセット</label>
+            <select id="carPreset" class="w-full bg-motec-bg border border-motec-border rounded px-2 py-1.5 text-sm"></select>
+            <p id="carSpec" class="text-[10px] text-slate-500 leading-relaxed border-t border-motec-border pt-2"></p>
+            <label class="block text-[10px] text-slate-500">Ne (max RPM)</label>
+            <input type="range" id="rpmSlider" min="5500" max="9000" step="100" class="w-full" />
+            <span id="rpmVal" class="text-xs text-motec-accent">7000</span>
 
-          <div class="border-t border-motec-border pt-3 mt-1 space-y-2">
-            <p class="text-[10px] text-motec-accent uppercase tracking-wider">チューニング</p>
-            <label class="text-[10px] text-slate-500">車重 (kg)</label>
-            <select id="massMode" class="tune-input w-full">
-              <option value="preset">プリセット＋軽量化</option>
-              <option value="custom">任意車重を指定</option>
-            </select>
-            <input type="number" id="customMassKg" min="700" max="2200" step="5" class="tune-input w-full" placeholder="例: 1180" />
-            <p id="massHint" class="text-[9px] text-slate-600">—</p>
-            <label class="text-[10px] text-slate-500 mt-1">馬力 (PS)</label>
-            <input type="number" id="targetPowerPs" min="50" max="900" step="1" class="tune-input w-full" placeholder="目標 PS" />
-            <div class="flex items-center gap-2">
-              <input type="range" id="powerSlider" min="70" max="160" step="1" value="100" class="flex-1" />
-              <span id="powerVal" class="text-xs text-motec-accent tabular-nums w-24 text-right shrink-0">—</span>
+            <div class="border-t border-motec-border pt-3 space-y-2">
+              <p class="text-[10px] text-motec-accent uppercase tracking-wider">チューニング</p>
+              <label class="text-[10px] text-slate-500">車重 (kg)</label>
+              <select id="massMode" class="tune-input w-full">
+                <option value="preset">プリセット＋軽量化</option>
+                <option value="custom">任意車重を指定</option>
+              </select>
+              <input type="number" id="customMassKg" min="700" max="2200" step="5" class="tune-input w-full" placeholder="例: 1180" />
+              <p id="massHint" class="text-[9px] text-slate-600">—</p>
+              <label class="text-[10px] text-slate-500">馬力 (PS)</label>
+              <input type="number" id="targetPowerPs" min="50" max="900" step="1" class="tune-input w-full" placeholder="目標 PS" />
+              <div class="flex items-center gap-2">
+                <input type="range" id="powerSlider" min="70" max="160" step="1" value="100" class="flex-1" />
+                <span id="powerVal" class="text-xs text-motec-accent tabular-nums w-24 text-right shrink-0">—</span>
+              </div>
             </div>
           </div>
-        </section>
+        </details>
 
-        <details class="parts-fold border border-motec-border rounded-lg" id="partsSection">
+        <details class="parts-fold cyber-panel rounded-lg" id="partsSection">
           <summary>
-            <span>Parts · パーツ</span>
+            <span class="neon-text">Parts · パーツ</span>
             <span class="parts-fold-chevron" aria-hidden="true">▼</span>
           </summary>
           <div class="parts-fold-body space-y-2">
@@ -488,6 +493,12 @@
       <!-- Meters + Canvas -->
       <main class="lg:col-span-9 space-y-4 min-w-0 w-full">
         <!-- Lap time hero -->
+        <details class="parts-fold cyber-panel rounded-lg" id="metricsSection" open>
+          <summary>
+            <span class="neon-text">走行タイム・スペック</span>
+            <span class="parts-fold-chevron" aria-hidden="true">▼</span>
+          </summary>
+          <div class="parts-fold-body">
         <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div class="col-span-2 md:col-span-1 cyber-panel rounded-lg p-4 relative overflow-visible scanline">
             <p class="text-[10px] uppercase text-slate-500 tracking-wider">走行タイム <span class="text-slate-600">[計算]</span></p>
@@ -517,11 +528,13 @@
             <p id="muWeight" class="text-sm font-bold tabular-nums">—</p>
           </div>
         </section>
+          </div>
+        </details>
 
         <!-- Segment meters -->
-        <details class="parts-fold border border-motec-border rounded-lg" id="sectorSection">
+        <details class="parts-fold cyber-panel rounded-lg" id="sectorSection">
           <summary>
-            <span>区間別走行（S→F）</span>
+            <span class="neon-text">区間別走行（S→F）</span>
             <span class="parts-fold-chevron" aria-hidden="true">▼</span>
           </summary>
           <div class="parts-fold-body">
@@ -538,7 +551,7 @@
           <p class="equip-ad-banner__body">
             &gt; 峠・公道ガチ勢の必需品。プロ仕様レーシンググローブで操作を遅らせるな。
           </p>
-          <a href="https://www.amazon.co.jp/s?k=%E3%83%8F%E3%82%A4%E3%82%B0%E3%83%AA%E3%83%83%E3%83%97%E3%82%BF%E3%82%A4%E3%83%A4+%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%B3%E3%82%B0%E3%82%B0%E3%83%AD%E3%83%BC%E3%83%96&amp;tag=irohack0d-22"
+          <a href="https://www.amazon.co.jp/s?k=%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%B3%E3%82%B0%E3%82%B0%E3%83%AD%E3%83%BC%E3%83%96+%E8%BB%8A+%E3%82%B5%E3%83%BC%E3%82%AD%E3%83%83%E3%83%88&amp;crid=Q24FGQUYLPVE&amp;sprefix=%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%B3%E3%82%B0%E3%82%B0%E3%83%AD%E3%83%BC%E3%83%96+%E8%BB%8A%2Caps%2C1023&amp;ref=nb_sb_ss_ts-doa-p_4_11&amp;tag=irohack0d-22"
              target="_blank"
              rel="noopener noreferrer sponsored"
              class="equip-ad-banner__link">
@@ -3162,6 +3175,8 @@
       courseGateCoords: $('courseGateCoords'),
       attackCourseTabs: $('attackCourseTabs'),
       attackDirToggle: $('attackDirToggle'),
+      vehicleSection: $('vehicleSection'),
+      metricsSection: $('metricsSection'),
       partsSection: $('partsSection'),
       partsTabParts: $('partsTabParts'),
       partsTabReset: $('partsTabReset'),
@@ -5025,7 +5040,9 @@
         courseDir: state.courseDir,
         Ne: state.Ne,
         mapView: state.mapView,
-        partsOpen: !!els.partsSection?.open
+        partsOpen: !!els.partsSection?.open,
+        vehicleOpen: !!els.vehicleSection?.open,
+        metricsOpen: !!els.metricsSection?.open
       };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -5068,6 +5085,12 @@
         if (data.mapView === 'sim' || data.mapView === 'course') state.mapView = data.mapView;
         if (els.partsSection && typeof data.partsOpen === 'boolean') {
           els.partsSection.open = data.partsOpen;
+        }
+        if (els.vehicleSection && typeof data.vehicleOpen === 'boolean') {
+          els.vehicleSection.open = data.vehicleOpen;
+        }
+        if (els.metricsSection && typeof data.metricsOpen === 'boolean') {
+          els.metricsSection.open = data.metricsOpen;
         }
         syncCourseGroupState();
         els.carPreset.value = state.carKey;
@@ -5186,6 +5209,8 @@
       });
     });
     els.partsSection?.addEventListener('toggle', saveLocal);
+    els.vehicleSection?.addEventListener('toggle', saveLocal);
+    els.metricsSection?.addEventListener('toggle', saveLocal);
     els.resetPartsBtn?.addEventListener('click', resetPartsToDefault);
     els.resetTuneBtn?.addEventListener('click', resetTuneToDefault);
     els.resetAllBtn?.addEventListener('click', resetAllSettings);
