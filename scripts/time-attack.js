@@ -267,6 +267,23 @@
     return branch?.name || '—';
   }
 
+  /** スタート／ゴールが同一ライン（テスト・環状など） */
+  function gatesShareSameLine(cfg) {
+    if (!cfg?.start?.pA || !cfg?.goal?.pA) return false;
+    const s = cfg.start;
+    const g = cfg.goal;
+    return (
+      s.pA.lat === g.pA.lat &&
+      s.pA.lng === g.pA.lng &&
+      s.pB.lat === g.pB.lat &&
+      s.pB.lng === g.pB.lng
+    );
+  }
+
+  function lapNeedsDepartArming(cfg, inTestMode) {
+    return !!(cfg?.lapMode && (inTestMode || gatesShareSameLine(cfg)));
+  }
+
   function initTimeAttack(opts) {
     const getCourseGroup = opts.getCourseGroup;
     const getCourseDir = opts.getCourseDir;
@@ -561,7 +578,12 @@
       testMode = !!on;
       syncCourse();
       onUiChange?.();
-      if (testMode) addGpsLog('テストゲートモード ON');
+      if (active) {
+        if (testMode) addGpsLog('テストゲートモード ON · ゲート同期済み');
+        else addGpsLog('テストゲートモード OFF');
+      } else if (testMode) {
+        addGpsLog('テストゲートモード ON');
+      }
     }
 
     function syncCourse() {
@@ -594,12 +616,14 @@
           let cfg;
           if (useAutoDir) {
             cfg = await resolveBidirectionalGates(group);
+            cfg.groupId = group;
           } else {
             cfg = await resolveBranchGates(branch);
             if (isLapGateGroup(group)) {
               cfg.lapMode = true;
               cfg.courseDir = 'lap';
             }
+            cfg.groupId = group;
           }
           if (token !== syncToken) return;
           pendingBidirectional = useAutoDir ? cfg : null;
@@ -660,7 +684,10 @@
 
     function stopLap() {
       if (!active || !isRacing) return;
-      abortLap(false);
+      resetRaceUi();
+      restoreBidirectionalIdle();
+      setStatus(MSG.idle, 'idle');
+      addGpsLog('ストップ（記録なし）');
     }
 
     function onPosition(position) {
@@ -688,6 +715,15 @@
 
       if (lastPosition) {
         if (currentConfig.lapMode && currentConfig.start?.pA) {
+          const needsDepart = lapNeedsDepartArming(currentConfig, testMode);
+          if (isRacing && needsDepart && !goalArmed && startGateMid) {
+            const elapsed = performance.now() - startTime;
+            const away = distM(currentPos, startGateMid);
+            if (elapsed >= MIN_RACE_MS && away >= MIN_DIST_FROM_START_M) {
+              goalArmed = true;
+              addGpsLog(`ラップ記録準備 (${Math.round(away)}m離脱)`);
+            }
+          }
           const crossedLine = checkIntersection(
             lastPosition, currentPos,
             currentConfig.start.pA, currentConfig.start.pB
@@ -709,7 +745,7 @@
               }, 33);
               updateLapButtons();
               RecordChime.playStart();
-            } else if (crossTime - startTime >= MIN_RACE_MS) {
+            } else if (crossTime - startTime >= MIN_RACE_MS && (!needsDepart || goalArmed)) {
               const finalTime = crossTime - startTime;
               if (els.time) els.time.textContent = formatTime(finalTime);
               setStatus(MSG.finished, 'finished');

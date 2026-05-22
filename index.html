@@ -3457,10 +3457,18 @@
       );
     }
 
+    function attackGateGroupDir() {
+      if (timeAttack?.isTestMode?.()) {
+        return { group: 'test', dir: 'lap' };
+      }
+      return { group: state.courseGroup, dir: state.courseDir };
+    }
+
     function renderCourseGateCoords() {
       const el = els.courseGateCoords;
       if (!el) return;
-      const coords = globalThis.getAttackGateCoords?.(state.courseGroup, state.courseDir);
+      const { group, dir } = attackGateGroupDir();
+      const coords = globalThis.getAttackGateCoords?.(group, dir);
       if (!coords) {
         el.innerHTML = '';
         return;
@@ -5042,7 +5050,8 @@
         mapView: state.mapView,
         partsOpen: !!els.partsSection?.open,
         vehicleOpen: !!els.vehicleSection?.open,
-        metricsOpen: !!els.metricsSection?.open
+        metricsOpen: !!els.metricsSection?.open,
+        testModeOpen: !!timeAttack?.isTestMode?.()
       };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -5091,6 +5100,9 @@
         }
         if (els.metricsSection && typeof data.metricsOpen === 'boolean') {
           els.metricsSection.open = data.metricsOpen;
+        }
+        if (typeof data.testModeOpen === 'boolean') {
+          timeAttack?.setTestMode?.(data.testModeOpen);
         }
         syncCourseGroupState();
         els.carPreset.value = state.carKey;
@@ -5222,7 +5234,7 @@
     // PWA service worker (inline blob)
     if ('serviceWorker' in navigator) {
       const swCode = `
-        const CACHE='setup-lab-v20';
+        const CACHE='setup-lab-v21';
         self.addEventListener('install', e => {
           e.waitUntil(caches.open(CACHE).then(c => c.addAll([
             './','./index.html','./scripts/red-path-browser.js',
@@ -5246,7 +5258,11 @@
       timeAttack = TimeAttack.init({
         getCourseGroup: () => state.courseGroup,
         getCourseDir: () => state.courseDir,
-        onUiChange: () => renderAttackCourseUI(),
+        onUiChange: () => {
+          renderAttackCourseUI();
+          renderCourseGateCoords();
+          saveLocal();
+        },
         onCourseDirDetected: (dir, groupId) => {
           if (timeAttack?.isTestMode?.()) return;
           const g = COURSE_GROUPS.find((x) => x.id === (groupId || state.courseGroup));
