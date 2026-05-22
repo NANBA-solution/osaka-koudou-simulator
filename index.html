@@ -115,7 +115,10 @@
     #courseCanvas { background: #fff !important; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
     .attack-panel { background: linear-gradient(180deg, #0d1219 0%, #0a0e14 100%); }
-    .attack-timer { font-variant-numeric: tabular-nums; letter-spacing: 0.08em; }
+    .attack-timer {
+      font-variant-numeric: tabular-nums; letter-spacing: 0.06em;
+      font-size: clamp(2.5rem, 9vw, 3.75rem); line-height: 1.1;
+    }
     .attack-lap-actions { display: flex; gap: 0.5rem; justify-content: center; margin-top: 0.5rem; }
     .attack-lap-btn {
       flex: 1; max-width: 6.5rem; padding: 0.4rem 0.5rem; font-size: 10px; font-weight: 700;
@@ -332,7 +335,7 @@
           <p id="attackCoords" class="text-[10px] text-slate-600 font-mono tabular-nums">—</p>
           <div class="bg-black/50 border border-motec-border rounded p-3 text-center">
             <p class="text-[9px] text-slate-600 tracking-widest uppercase mb-1">Current Lap</p>
-            <p id="attackTime" class="attack-timer text-4xl font-black text-red-400 glow-red">00:00.000</p>
+            <p id="attackTime" class="attack-timer font-black text-red-400 glow-red">00:00.000</p>
             <div class="attack-lap-actions">
               <button type="button" id="attackReset" class="attack-lap-btn attack-lap-btn--reset" disabled title="タイム表示を00:00.000に戻す">リセット</button>
               <button type="button" id="attackStop" class="attack-lap-btn attack-lap-btn--stop" disabled title="計測中のラップを中断（記録しない）">ストップ</button>

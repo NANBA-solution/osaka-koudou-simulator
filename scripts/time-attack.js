@@ -266,7 +266,7 @@
 
     function setTimerClass(mode) {
       if (!els.time) return;
-      const base = 'text-4xl md:text-5xl font-black tabular-nums tracking-widest ';
+      const base = 'attack-timer font-black tabular-nums tracking-widest ';
       if (mode === 'racing') els.time.className = base + 'text-motec-ok glow-cyan';
       else if (mode === 'finished') els.time.className = base + 'text-sky-400 glow-cyan';
       else els.time.className = base + 'text-red-400 glow-red';
