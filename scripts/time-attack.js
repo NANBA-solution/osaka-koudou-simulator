@@ -468,6 +468,7 @@
       uiInterval = setInterval(() => {
         if (els.time) els.time.textContent = formatTime(performance.now() - startTime);
       }, 33);
+      updateLapButtons();
     }
 
     function restoreBidirectionalIdle() {
@@ -552,6 +553,11 @@
       }
     }
 
+    function updateLapButtons() {
+      if (els.resetBtn) els.resetBtn.disabled = !active;
+      if (els.stopBtn) els.stopBtn.disabled = !active || !isRacing;
+    }
+
     function resetRaceUi() {
       isRacing = false;
       goalArmed = false;
@@ -562,6 +568,20 @@
       }
       setTimerClass('idle');
       if (els.time) els.time.textContent = '00:00.000';
+      updateLapButtons();
+    }
+
+    function resetLap() {
+      if (!active) return;
+      resetRaceUi();
+      restoreBidirectionalIdle();
+      setStatus(MSG.idle, 'idle');
+      addGpsLog('リセット');
+    }
+
+    function stopLap() {
+      if (!active || !isRacing) return;
+      abortLap(false);
     }
 
     function onPosition(position) {
@@ -608,6 +628,7 @@
               uiInterval = setInterval(() => {
                 if (els.time) els.time.textContent = formatTime(performance.now() - startTime);
               }, 33);
+              updateLapButtons();
             } else if (crossTime - startTime >= MIN_RACE_MS) {
               const finalTime = crossTime - startTime;
               if (els.time) els.time.textContent = formatTime(finalTime);
@@ -653,6 +674,7 @@
               uiInterval = setInterval(() => {
                 if (els.time) els.time.textContent = formatTime(performance.now() - startTime);
               }, 33);
+              updateLapButtons();
             }
           }
         } else if (!currentConfig.lapMode) {
@@ -679,6 +701,7 @@
             addGpsLog(`計測地点通過 → ゴール · ${formatTime(finalTime)}`);
             restoreBidirectionalIdle();
             setStatus(MSG.idle, 'idle');
+            updateLapButtons();
           }
         }
       }
@@ -713,6 +736,7 @@
       stopWatch();
       setGpsPower(true);
       setStatus(MSG.idle, 'idle');
+      updateLapButtons();
       addGpsLog('GPS ON · 計測地点の通過で計測します');
       watchId = navigator.geolocation.watchPosition(onPosition, onGpsError, {
         enableHighAccuracy: true,
@@ -727,6 +751,7 @@
       resetRaceUi();
       setGpsPower(false);
       setStatus(MSG.off, 'off');
+      updateLapButtons();
       addGpsLog('GPS OFF');
     }
 
@@ -736,6 +761,8 @@
     }
 
     if (els.toggleBtn) els.toggleBtn.addEventListener('click', toggleGps);
+    if (els.resetBtn) els.resetBtn.addEventListener('click', resetLap);
+    if (els.stopBtn) els.stopBtn.addEventListener('click', stopLap);
     if (els.logList) {
       els.logList.addEventListener('click', (ev) => {
         const shareBtn = ev.target.closest('[data-share-id]');
@@ -755,6 +782,7 @@
     renderLogList();
     setGpsPower(false);
     setStatus(MSG.off, 'off');
+    updateLapButtons();
     syncCourse();
 
     return {
