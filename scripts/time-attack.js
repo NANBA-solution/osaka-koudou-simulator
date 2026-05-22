@@ -8,6 +8,80 @@
   const MAX_LOG = 200;
   const SHARE_APP_URL = 'https://nanba-solution.github.io/osaka-koudou-simulator/';
 
+  /** タイムアタック用チャイム（Web Audio・外部ファイル不要） */
+  const RecordChime = (function () {
+    let ctx = null;
+    const START_NOTES = [{ f: 523.25, at: 0 }, { f: 783.99, at: 0.07 }];
+    const FINISH_NOTES = [{ f: 880, at: 0 }, { f: 1174.66, at: 0.1 }];
+
+    function getCtx() {
+      if (ctx) return ctx;
+      const Ctx = global.AudioContext || global.webkitAudioContext;
+      if (!Ctx) return null;
+      try {
+        ctx = new Ctx();
+      } catch (_) {
+        return null;
+      }
+      return ctx;
+    }
+
+    function shouldPlay() {
+      return !global.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    }
+
+    function playNotes(c, t0, notes, peak, decay) {
+      notes.forEach(({ f, at }) => {
+        const osc = c.createOscillator();
+        const gain = c.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = f;
+        const t = t0 + at;
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(peak, t + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+        osc.connect(gain);
+        gain.connect(c.destination);
+        osc.start(t);
+        osc.stop(t + decay + 0.04);
+      });
+    }
+
+    function run(notes, peak, decay) {
+      if (!shouldPlay()) return;
+      const c = getCtx();
+      if (!c) return;
+      const exec = () => playNotes(c, c.currentTime, notes, peak, decay);
+      if (c.state === 'suspended') {
+        c.resume().then(exec).catch(() => {});
+      } else {
+        exec();
+      }
+    }
+
+    function unlock() {
+      const c = getCtx();
+      if (!c) return Promise.resolve();
+      const resume = c.state === 'suspended' ? c.resume() : Promise.resolve();
+      return resume.then(() => {
+        const o = c.createOscillator();
+        const g = c.createGain();
+        g.gain.value = 0.0001;
+        o.connect(g);
+        g.connect(c.destination);
+        const t = c.currentTime;
+        o.start(t);
+        o.stop(t + 0.02);
+      }).catch(() => {});
+    }
+
+    return {
+      unlock,
+      playStart: () => run(START_NOTES, 0.2, 0.2),
+      playFinish: () => run(FINISH_NOTES, 0.22, 0.32)
+    };
+  })();
+
   const COURSE_GROUP_LABELS = {
     shigisan: '信貴山',
     saruyama: '猿山',
@@ -348,6 +422,7 @@
       saveLog(entries);
       renderLogList();
       addGpsLog(`記録保存 · ${entry.time}`);
+      RecordChime.playFinish();
     }
 
     let syncToken = 0;
@@ -472,6 +547,7 @@
         if (els.time) els.time.textContent = formatTime(performance.now() - startTime);
       }, 33);
       updateLapButtons();
+      RecordChime.playStart();
     }
 
     function restoreBidirectionalIdle() {
@@ -632,6 +708,7 @@
                 if (els.time) els.time.textContent = formatTime(performance.now() - startTime);
               }, 33);
               updateLapButtons();
+              RecordChime.playStart();
             } else if (crossTime - startTime >= MIN_RACE_MS) {
               const finalTime = crossTime - startTime;
               if (els.time) els.time.textContent = formatTime(finalTime);
@@ -678,6 +755,7 @@
                 if (els.time) els.time.textContent = formatTime(performance.now() - startTime);
               }, 33);
               updateLapButtons();
+              RecordChime.playStart();
             }
           }
         } else if (!currentConfig.lapMode) {
@@ -759,6 +837,7 @@
     }
 
     function toggleGps() {
+      RecordChime.unlock();
       if (active) stopGps();
       else startGps().catch(() => {});
     }
