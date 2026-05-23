@@ -1207,8 +1207,6 @@
     let goalArmed = false;
     let startGateMid = null;
     let lastCoordsPaint = 0;
-    /** ストップ後はゲート通過で再スタートしない（リセットまで） */
-    let lapHold = false;
     /** スタート直後の誤ゴール防止（同一ライン・GPSノイズ対策） */
     const MIN_RACE_MS = 2500;
     const MIN_DIST_FROM_START_M = 30;
@@ -1223,7 +1221,7 @@
       off: '計測地点を通過するとスタート／ゴールを判定します',
       idle: '計測地点の通過を待機中',
       racing: '計測中 — ゴール地点を通過で停止',
-      stopped: 'ストップ — タイム停止中（リセットで再開）',
+      stopped: 'ストップ — 計測地点通過で再スタート',
       finished: 'ゴール地点通過 · 記録を保存しました',
       errorPos: '位置情報を取得できません（設定を確認）',
       errorGate: '計測地点を取得できません（ネットを確認）',
@@ -1729,7 +1727,6 @@
       ) {
         return;
       }
-      lapHold = false;
       resetRaceUi();
       restoreBidirectionalIdle();
       setStatus(MSG.idle, 'idle');
@@ -1739,7 +1736,6 @@
     function stopLap() {
       if (!active || !isRacing) return;
       const frozenMs = Math.max(0, performance.now() - startTime);
-      lapHold = true;
       isRacing = false;
       goalArmed = false;
       startGateMid = null;
