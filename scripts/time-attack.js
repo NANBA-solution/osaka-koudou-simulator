@@ -120,7 +120,44 @@
   const storyBlobCache = new Map();
   const STORY_CACHE_MAX = 30;
   /** 画像レイアウト変更時に increment（古いキャッシュを無効化） */
-  const STORY_IMG_VER = 3;
+  const STORY_IMG_VER = 4;
+  const STORY_FONT_LINK_ID = 'story-noto-sans-jp-css';
+  /** Canvas は先頭フォントのみ使うため JetBrains を日本語に使わない */
+  const FONT_JP =
+    '"Noto Sans JP", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic UI", sans-serif';
+  const FONT_LATIN = '"JetBrains Mono", ui-monospace, monospace';
+  const FONT_TIME = 'Orbitron, ui-monospace, monospace';
+  let storyFontReadyPromise = null;
+
+  function ensureStoryCanvasFonts() {
+    if (storyFontReadyPromise) return storyFontReadyPromise;
+    storyFontReadyPromise = (async () => {
+      const doc = global.document;
+      if (!doc) return;
+      if (!doc.getElementById(STORY_FONT_LINK_ID)) {
+        const link = doc.createElement('link');
+        link.id = STORY_FONT_LINK_ID;
+        link.rel = 'stylesheet';
+        link.href =
+          'https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@500;700&display=swap';
+        doc.head.appendChild(link);
+        await new Promise((resolve) => {
+          link.addEventListener('load', resolve, { once: true });
+          link.addEventListener('error', resolve, { once: true });
+        });
+      }
+      if (!doc.fonts?.load) return;
+      try {
+        await Promise.all([
+          doc.fonts.load(`700 52px ${FONT_JP}`),
+          doc.fonts.load(`500 30px ${FONT_JP}`),
+          doc.fonts.load(`900 108px ${FONT_TIME}`)
+        ]);
+        await doc.fonts.ready;
+      } catch (_) {}
+    })();
+    return storyFontReadyPromise;
+  }
 
   function storyCacheKey(entryId) {
     return `${STORY_IMG_VER}:${entryId}`;
@@ -250,32 +287,28 @@
     return false;
   }
 
+  function drawCenteredLines(ctx, lines, y0, lineHeight, font, color, centerX) {
+    ctx.fillStyle = color;
+    ctx.font = font;
+    ctx.textAlign = 'center';
+    lines.forEach((ln, i) => {
+      ctx.fillText(ln, centerX, y0 + i * lineHeight);
+    });
+  }
+
   async function buildStoryImageBlob(meta) {
-    const courseName = meta.courseName || '—';
-    const routeLabel = meta.routeLabel || meta.gateName || '—';
+    const courseName = (meta.courseName || '—').trim() || '—';
+    const routeLabel = (meta.routeLabel || meta.gateName || '—').trim() || '—';
     const dirLabel = meta.dirLabel || '';
     const time = meta.time || '—';
     const W = 1080;
     const H = 1920;
+    await ensureStoryCanvasFonts();
     const canvas = document.createElement('canvas');
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
-
-    const FONT_TIME = 'Orbitron, ui-monospace, monospace';
-    const FONT_JP =
-      '"JetBrains Mono", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic UI", sans-serif';
-
-    if (global.document?.fonts?.load) {
-      try {
-        await Promise.all([
-          global.document.fonts.load(`900 108px ${FONT_TIME}`),
-          global.document.fonts.load(`700 52px ${FONT_JP}`),
-          global.document.fonts.load(`500 28px ${FONT_JP}`)
-        ]);
-      } catch (_) {}
-    }
 
     const bg = ctx.createLinearGradient(0, 0, 0, H);
     bg.addColorStop(0, '#0a1018');
@@ -300,10 +333,10 @@
 
     ctx.textAlign = 'center';
     ctx.fillStyle = '#64748b';
-    ctx.font = `600 28px ${FONT_JP}`;
+    ctx.font = `600 28px ${FONT_LATIN}`;
     ctx.fillText('OSAKA KOUDO SIMULATOR', W / 2, 200);
     ctx.fillStyle = '#f87171';
-    ctx.font = `700 32px ${FONT_JP}`;
+    ctx.font = `700 32px ${FONT_LATIN}`;
     ctx.fillText('GPS TIME ATTACK', W / 2, 248);
 
     const padX = 80;
@@ -354,8 +387,29 @@
     ctx.shadowBlur = 0;
 
     ctx.fillStyle = '#94a3b8';
-    ctx.font = `600 34px ${FONT_JP}`;
+    ctx.font = `600 34px ${FONT_LATIN}`;
     ctx.fillText('LAP TIME', W / 2, 1240);
+
+    const summaryParts = [courseName];
+    if (routeLabel && routeLabel !== '—' && routeLabel !== courseName) {
+      summaryParts.push(routeLabel);
+    } else if (dirLabel && !routeLabelShowsDir(routeLabel, dirLabel)) {
+      summaryParts.push(dirLabel);
+    }
+    const summaryText = summaryParts.join(' · ');
+    const summaryMaxW = W - 160;
+    ctx.textAlign = 'left';
+    ctx.font = `700 38px ${FONT_JP}`;
+    const summaryLines = wrapLines(ctx, summaryText, summaryMaxW);
+    drawCenteredLines(
+      ctx,
+      summaryLines,
+      1290,
+      46,
+      `700 38px ${FONT_JP}`,
+      '#f8fafc',
+      W / 2
+    );
 
     ctx.textAlign = 'center';
     ctx.fillStyle = '#475569';
