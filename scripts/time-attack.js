@@ -120,7 +120,7 @@
   const storyBlobCache = new Map();
   const STORY_CACHE_MAX = 30;
   /** 画像レイアウト変更時に increment（古いキャッシュを無効化） */
-  const STORY_IMG_VER = 6;
+  const STORY_IMG_VER = 7;
   const STORY_FONT_LINK_ID = 'story-noto-sans-jp-css';
   /** Canvas は先頭フォントのみ使うため JetBrains を日本語に使わない */
   const FONT_JP =
@@ -417,6 +417,83 @@
     ctx.restore();
   }
 
+  /** コース名と重複しないサブタイトル（区間・方向のみ） */
+  function storyCourseSubtitle(courseName, routeLabel, dirLabel) {
+    const route = (routeLabel || '').trim();
+    if (!route || route === '—' || route === courseName) {
+      return dirLabel && !routeLabelShowsDir(route, dirLabel) ? dirLabel : '';
+    }
+    const esc = courseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    let sub = route
+      .replace(new RegExp(`^${esc}(?:\\s*[·・]\\s*|\\s+|$)`), '')
+      .trim();
+    if (!sub) {
+      return dirLabel && !routeLabelShowsDir(route, dirLabel) ? dirLabel : '';
+    }
+    if (dirLabel && !routeLabelShowsDir(route, dirLabel) && !sub.includes(dirLabel)) {
+      sub = `${sub} · ${dirLabel}`;
+    }
+    return sub;
+  }
+
+  function drawStoryCourseCard(ctx, W, courseName, routeLabel, dirLabel) {
+    const cardX = 56;
+    const cardW = W - cardX * 2;
+    const pad = 36;
+    const innerW = cardW - pad * 2;
+    const cx = cardX + cardW / 2;
+    const subtitle = storyCourseSubtitle(courseName, routeLabel, dirLabel);
+
+    ctx.font = `700 52px ${FONT_JP}`;
+    const titleLines = wrapLines(ctx, courseName, innerW).slice(0, 2);
+    let subLines = [];
+    if (subtitle) {
+      ctx.font = `400 26px ${FONT_JP}`;
+      subLines = wrapLines(ctx, subtitle, innerW).slice(0, 2);
+    }
+
+    let contentH = 28 + titleLines.length * 56;
+    if (subLines.length) contentH += 14 + subLines.length * 34;
+    const panelH = contentH + pad * 2;
+    const panelY = 266;
+
+    ctx.save();
+    storyRoundRect(ctx, cardX, panelY, cardW, panelH, 12);
+    ctx.fillStyle = 'rgba(6, 12, 20, 0.78)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.28)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(0, 240, 255, 0.55)';
+    ctx.fillRect(cardX + 32, panelY, cardW - 64, 2);
+    ctx.restore();
+
+    let y = panelY + pad + 18;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(0, 229, 255, 0.65)';
+    ctx.font = `500 18px ${FONT_JP}`;
+    ctx.fillText('コース', cx, y);
+    y += 34;
+
+    ctx.fillStyle = '#f1f5f9';
+    ctx.font = `700 52px ${FONT_JP}`;
+    titleLines.forEach((ln, i) => {
+      ctx.fillText(ln, cx, y + i * 56);
+    });
+    y += titleLines.length * 56;
+
+    if (subLines.length) {
+      y += 14;
+      ctx.fillStyle = '#64748b';
+      ctx.font = `400 26px ${FONT_JP}`;
+      subLines.forEach((ln, i) => {
+        ctx.fillText(ln, cx, y + i * 34);
+      });
+    }
+
+    return panelY + panelH;
+  }
+
   function drawStoryHeader(ctx, W) {
     ctx.textAlign = 'center';
     ctx.fillStyle = 'rgba(100, 116, 139, 0.95)';
@@ -471,58 +548,8 @@
     drawStoryBackground(ctx, W, H);
     drawStoryHeader(ctx, W);
 
-    const padX = 72;
     const cardX = 56;
-    const cardW = W - cardX * 2;
-    const maxW = cardW - 48;
-    ctx.textAlign = 'left';
-
-    const routeLines = wrapLines(ctx, routeLabel, maxW);
-    const dirExtra = dirLabel && !routeLabelShowsDir(routeLabel, dirLabel) ? 1 : 0;
-    const panelLines = 2 + dirExtra + routeLines.length;
-    const panelH = panelLines * 40 + 52;
-    const panelY = 272;
-    let courseY = panelY + 36;
-
-    drawGlassPanel(ctx, cardX, panelY, cardW, panelH, 14);
-
-    ctx.fillStyle = 'rgba(0, 240, 255, 0.35)';
-    ctx.font = `700 20px ${FONT_LATIN}`;
-    ctx.fillText('COURSE', padX, courseY);
-    ctx.fillStyle = '#00f0ff';
-    ctx.font = `700 22px ${FONT_JP}`;
-    ctx.fillText('コース', padX + 108, courseY);
-    courseY += 40;
-
-    ctx.fillStyle = '#ffffff';
-    ctx.font = `700 56px ${FONT_JP}`;
-    ctx.shadowColor = 'rgba(255, 255, 255, 0.25)';
-    ctx.shadowBlur = 12;
-    ctx.fillText(courseName, padX, courseY);
-    ctx.shadowBlur = 0;
-    courseY += 62;
-
-    if (dirExtra) {
-      const badgeW = ctx.measureText(dirLabel).width + 48;
-      storyRoundRect(ctx, padX, courseY - 28, badgeW, 40, 8);
-      ctx.fillStyle = 'rgba(0, 240, 255, 0.2)';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.5)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      ctx.fillStyle = '#a5f3fc';
-      ctx.font = `600 28px ${FONT_JP}`;
-      ctx.fillText(`↕ ${dirLabel}`, padX + 16, courseY);
-      courseY += 48;
-    }
-
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = `500 28px ${FONT_JP}`;
-    routeLines.forEach((ln, i) => {
-      ctx.fillText(ln, padX, courseY + i * 36);
-    });
-
-    const panelBottom = panelY + panelH;
+    const panelBottom = drawStoryCourseCard(ctx, W, courseName, routeLabel, dirLabel);
     const mapX = cardX;
     const mapW = cardW;
     const mapTop = panelBottom + 20;
