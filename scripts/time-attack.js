@@ -1136,12 +1136,12 @@
           `<div class="text-motec-ok font-bold tabular-nums text-sm">${time}</div>` +
           `<div class="text-[10px] text-slate-500 truncate">${label}</div>` +
           `<div class="text-[9px] text-slate-600">${date}</div></div>` +
-          `<div class="attack-record-actions">` +
-          `<button type="button" class="attack-record-share" data-share-id="${id}" aria-label="Xで共有">X</button>` +
+          `<div class="attack-record-actions" role="group" aria-label="記録の共有">` +
           `<button type="button" class="attack-record-share attack-record-share--save" data-save-img-id="${id}" ` +
-          `aria-label="ストーリー用画像を保存" title="タイム・コース入り画像をフォトに保存">保存</button>` +
+          `aria-label="ストーリー用画像を保存" title="タイム・コース入り画像をフォトに保存">画像</button>` +
           `<a href="${igHref}" class="attack-record-share attack-record-share--ig" data-share-ig-id="${id}" ` +
           `aria-label="Instagramを開く（画像は自動保存）" title="画像を自動保存してInstagramを起動">IG</a>` +
+          `<button type="button" class="attack-record-share" data-share-id="${id}" aria-label="Xで共有">X</button>` +
           `<button type="button" class="attack-record-del" data-delete-id="${id}" aria-label="この記録を削除">削除</button>` +
           `</div></article>`
         );

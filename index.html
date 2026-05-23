@@ -197,8 +197,20 @@
     .gps-power-off { color: #64748b; border-color: #334155; background: #0a0e14; }
     .gps-power-on { color: #34d399; border-color: #059669; background: rgba(5,150,105,.12); }
     #attackLogList { max-height: 10rem; overflow-y: auto; }
-    .attack-record-row { display: grid; grid-template-columns: 1fr auto; gap: 0.35rem 0.5rem; align-items: center; }
-    .attack-record-actions { display: flex; gap: 0.35rem; align-items: center; flex-shrink: 0; }
+    .attack-record-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(9.5rem, auto);
+      gap: 0.35rem 0.4rem;
+      align-items: start;
+    }
+    .attack-record-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+      align-items: center;
+      justify-content: flex-end;
+      max-width: 100%;
+    }
     .attack-record-share,
     .attack-record-del {
       padding: 0.15rem 0.4rem; font-size: 9px; line-height: 1.2;
@@ -439,7 +451,7 @@
               <p class="text-[9px] text-slate-600 tracking-wider uppercase">タイム記録 <span id="attackLogCount" class="text-slate-500 normal-case">(0)</span></p>
               <button type="button" id="attackLogClearAll" class="text-[9px] text-slate-600 hover:text-red-400 border border-motec-border px-1.5 py-0.5 rounded" title="全記録を削除">全削除</button>
             </div>
-            <p class="text-[9px] text-slate-600 mb-1">保存＝画像をフォトへ · IG＝Instagramを開く（画像は自動保存）</p>
+            <p class="text-[9px] text-slate-600 mb-1">画像＝フォトに保存 · IG＝Instagramを開く（自動保存）</p>
             <div id="attackLogList" class="text-[11px] space-y-1 font-mono"></div>
           </div>
         </section>
@@ -621,7 +633,7 @@
   <script src="scripts/red-path-browser.js"></script>
   <script src="scripts/road-gate.js"></script>
   <script src="scripts/attack-gates.js"></script>
-  <script src="scripts/time-attack.js"></script>
+  <script src="scripts/time-attack.js?v=38"></script>
   <script>
   (function () {
     'use strict';
@@ -5458,16 +5470,37 @@
     // PWA service worker (inline blob)
     if ('serviceWorker' in navigator) {
       const swCode = `
-        const CACHE='setup-lab-v37';
+        const CACHE='setup-lab-v38';
+        const PRECACHE=[
+          './','./index.html',
+          './scripts/red-path-browser.js','./scripts/road-gate.js','./scripts/attack-gates.js',
+          './scripts/time-attack.js','./scripts/time-attack.js?v=38',
+          './assets/shigisan-ref.png','./assets/minoo-ref.png','./assets/hanna-ref.png',
+          './assets/hanna-up-map.png','./assets/kanjo-ref.png'
+        ];
         self.addEventListener('install', e => {
-          e.waitUntil(caches.open(CACHE).then(c => c.addAll([
-            './','./index.html','./scripts/red-path-browser.js',
-            './scripts/road-gate.js','./scripts/attack-gates.js',            './scripts/time-attack.js',
-            './assets/shigisan-ref.png','./assets/minoo-ref.png','./assets/hanna-ref.png','./assets/hanna-up-map.png','./assets/kanjo-ref.png'
-          ])));
+          e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE)));
           self.skipWaiting();
         });
+        self.addEventListener('activate', e => {
+          e.waitUntil(caches.keys().then(keys => Promise.all(
+            keys.filter(k => k !== CACHE).map(k => caches.delete(k))
+          )));
+          self.clients.claim();
+        });
         self.addEventListener('fetch', e => {
+          const url = new URL(e.request.url);
+          const fresh = url.pathname.endsWith('.js') || url.pathname.endsWith('.html');
+          if (fresh) {
+            e.respondWith(fetch(e.request).then(res => {
+              if (res && res.ok) {
+                const copy = res.clone();
+                caches.open(CACHE).then(c => c.put(e.request, copy));
+              }
+              return res;
+            }).catch(() => caches.match(e.request)));
+            return;
+          }
           e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
         });
       `;
