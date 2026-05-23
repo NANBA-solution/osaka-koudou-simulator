@@ -3826,8 +3826,28 @@
       ctx.closePath();
     }
 
+    function drawStoryMapHudLabel(ctx, x, y, w) {
+      const label = 'ROUTE MAP';
+      ctx.save();
+      ctx.font = '700 18px JetBrains Mono, monospace';
+      const tw = ctx.measureText(label).width + 28;
+      const lx = x + 20;
+      const ly = y + 16;
+      storyMapRoundRect(ctx, lx, ly, tw, 32, 6);
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.22)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.55)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = '#00f0ff';
+      ctx.textAlign = 'left';
+      ctx.fillText(label, lx + 14, ly + 22);
+      ctx.restore();
+    }
+
     function renderStoryCourseMap(ctx, x, y, w, h, opts) {
       if (!ctx || w < 40 || h < 40) return false;
+      try {
       const groupId = opts?.courseGroup || 'shigisan';
       const dir = opts?.courseDir || 'up';
       const r = 14;
@@ -3981,25 +4001,11 @@
       drawStoryMapHudLabel(ctx, x, y, w);
       ctx.restore();
       return true;
-    }
-
-    function drawStoryMapHudLabel(ctx, x, y, w) {
-      const label = 'ROUTE MAP';
-      ctx.save();
-      ctx.font = '700 18px JetBrains Mono, monospace';
-      const tw = ctx.measureText(label).width + 28;
-      const lx = x + 20;
-      const ly = y + 16;
-      storyMapRoundRect(ctx, lx, ly, tw, 32, 6);
-      ctx.fillStyle = 'rgba(0, 240, 255, 0.22)';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.55)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      ctx.fillStyle = '#00f0ff';
-      ctx.textAlign = 'left';
-      ctx.fillText(label, lx + 14, ly + 22);
-      ctx.restore();
+      } catch (err) {
+        console.warn('renderStoryCourseMap failed', err);
+        try { ctx.restore(); } catch (_) {}
+        return false;
+      }
     }
 
     globalThis.renderStoryCourseMap = renderStoryCourseMap;

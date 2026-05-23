@@ -120,7 +120,7 @@
   const storyBlobCache = new Map();
   const STORY_CACHE_MAX = 30;
   /** 画像レイアウト変更時に increment（古いキャッシュを無効化） */
-  const STORY_IMG_VER = 8;
+  const STORY_IMG_VER = 9;
   const STORY_FONT_LINK_ID = 'story-noto-sans-jp-css';
   /** Canvas は先頭フォントのみ使うため JetBrains を日本語に使わない */
   const FONT_JP =
@@ -497,10 +497,8 @@
   function drawStoryHeader(ctx, W) {
     ctx.textAlign = 'center';
     ctx.fillStyle = 'rgba(100, 116, 139, 0.95)';
-    ctx.font = `600 26px ${FONT_LATIN}`;
-    ctx.letterSpacing = '0.18em';
+    ctx.font = `600 24px ${FONT_LATIN}`;
     ctx.fillText('OSAKA KOUDO SIMULATOR', W / 2, 188);
-    ctx.letterSpacing = '0';
     const subW = 280;
     const subX = (W - subW) / 2;
     ctx.fillStyle = 'rgba(248, 113, 113, 0.25)';
@@ -531,7 +529,36 @@
     ctx.shadowBlur = 0;
   }
 
+  function dataUrlToPngBlob(dataUrl) {
+    try {
+      const bin = atob(dataUrl.split(',')[1] || '');
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      return new Blob([arr], { type: 'image/png' });
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function canvasToPngBlob(canvas) {
+    return new Promise((resolve) => {
+      try {
+        if (typeof canvas.toBlob === 'function') {
+          canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else resolve(dataUrlToPngBlob(canvas.toDataURL('image/png')));
+          }, 'image/png', 0.92);
+          return;
+        }
+        resolve(dataUrlToPngBlob(canvas.toDataURL('image/png')));
+      } catch (_) {
+        resolve(null);
+      }
+    });
+  }
+
   async function buildStoryImageBlob(meta, opts) {
+    try {
     const courseName = (meta.courseName || '—').trim() || '—';
     const routeLabel = (meta.routeLabel || meta.gateName || '—').trim() || '—';
     const dirLabel = meta.dirLabel || '';
@@ -541,13 +568,12 @@
     if (!opts?.skipFontWait) {
       await ensureStoryCanvasFonts();
     }
-    const canvas = document.createElement('canvas');
+    const canvas = global.document.createElement('canvas');
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
-    try {
     drawStoryBackground(ctx, W, H);
     drawStoryHeader(ctx, W);
 
@@ -593,14 +619,12 @@
     const host = SHARE_APP_URL.replace(/^https?:\/\//, '');
     ctx.fillText(host, W / 2, H - 158);
     ctx.shadowBlur = 0;
+
+    return await canvasToPngBlob(canvas);
     } catch (err) {
       console.error('buildStoryImageBlob failed', err);
       return null;
     }
-
-    return new Promise((resolve) => {
-      canvas.toBlob((blob) => resolve(blob), 'image/png');
-    });
   }
 
   function storyImageFilename(timeLabel) {
@@ -610,20 +634,48 @@
 
   function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
-    const a = global.document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    global.document.body.appendChild(a);
-    a.click();
-    a.remove();
-    global.setTimeout(() => URL.revokeObjectURL(url), 2000);
+    try {
+      const a = global.document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.style.display = 'none';
+      global.document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } finally {
+      global.setTimeout(() => URL.revokeObjectURL(url), 3000);
+    }
   }
 
-  /** 保存と Instagram 起動を同一タップ内で同期実行（await しない） */
+  async function shareBlobViaWebShare(blob, filename) {
+    if (!global.navigator?.share || !global.File) return false;
+    try {
+      const file = new File([blob], filename, { type: 'image/png' });
+      if (global.navigator.canShare && !global.navigator.canShare({ files: [file] })) {
+        return false;
+      }
+      await global.navigator.share({ files: [file], title: '大阪公道シミュレーター' });
+      return true;
+    } catch (err) {
+      if (err?.name === 'AbortError') return true;
+      return false;
+    }
+  }
+
+  /** 保存と Instagram 起動を同一タップ内で同期実行 */
   function saveAndLaunchInstagramSync(blob, timeLabel) {
-    downloadBlob(blob, storyImageFilename(timeLabel));
-    launchInstagramAppNow();
-    copyImageToClipboard(blob);
+    const filename = storyImageFilename(timeLabel);
+    try {
+      downloadBlob(blob, filename);
+    } catch (err) {
+      console.warn('IG image download failed', err);
+    }
+    try {
+      launchInstagramAppNow();
+    } catch (err) {
+      console.warn('Instagram launch failed', err);
+    }
+    copyImageToClipboard(blob).catch(() => {});
   }
 
   /**
@@ -899,14 +951,29 @@
       shareToX(meta.courseName, meta.time, meta.gateName);
     }
 
-    function deliverInstagramShare(blob, meta, entryId) {
+    async function deliverInstagramShare(blob, meta, entryId) {
       if (!blob) {
         global.alert('ストーリー用画像の作成に失敗しました。');
         return;
       }
       if (entryId) storyBlobCache.set(storyCacheKey(entryId), blob);
-      saveAndLaunchInstagramSync(blob, meta.time);
-      addGpsLog('IG: 画像を保存 → Instagram を起動');
+      const filename = storyImageFilename(meta.time);
+      try {
+        if (await shareBlobViaWebShare(blob, filename)) {
+          addGpsLog('IG: 共有シートを表示');
+          return;
+        }
+        saveAndLaunchInstagramSync(blob, meta.time);
+        addGpsLog('IG: 画像を保存 → Instagram を起動');
+      } catch (err) {
+        console.error('IG deliver failed', err);
+        try {
+          saveAndLaunchInstagramSync(blob, meta.time);
+        } catch (_) {}
+        global.alert(
+          '画像を保存しました。\n写真アプリまたはInstagramから画像をストーリーに追加してください。'
+        );
+      }
     }
 
     function shareRecordToInstagram(id) {
@@ -915,16 +982,23 @@
       const meta = entryShareMeta(entry);
       const cached = storyBlobCache.get(storyCacheKey(id));
 
+      const run = (blob) => {
+        deliverInstagramShare(blob, meta, id).catch((err) => {
+          console.error('IG share failed', err);
+          global.alert('共有できませんでした。');
+        });
+      };
+
       if (cached) {
-        deliverInstagramShare(cached, meta, id);
+        run(cached);
         return;
       }
 
       addGpsLog('IG: 画像を準備中…');
       buildStoryImageBlob(meta, { skipFontWait: true })
-        .then((blob) => deliverInstagramShare(blob, meta, id))
+        .then(run)
         .catch((err) => {
-          console.error('IG share failed', err);
+          console.error('IG build failed', err);
           global.alert('共有できませんでした。');
         });
     }
