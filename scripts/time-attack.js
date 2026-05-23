@@ -120,7 +120,7 @@
   const storyBlobCache = new Map();
   const STORY_CACHE_MAX = 30;
   /** 画像レイアウト変更時に increment（古いキャッシュを無効化） */
-  const STORY_IMG_VER = 4;
+  const STORY_IMG_VER = 5;
   const STORY_FONT_LINK_ID = 'story-noto-sans-jp-css';
   /** Canvas は先頭フォントのみ使うため JetBrains を日本語に使わない */
   const FONT_JP =
@@ -244,9 +244,30 @@
     return '';
   }
 
+  function inferCourseGroupFromLabel(label) {
+    const t = String(label || '');
+    if (/信貴|十三|水無瀬/.test(t)) return 'shigisan';
+    if (/猿山/.test(t)) return 'saruyama';
+    if (/阪奈|国道308|308/.test(t)) return 'hanna';
+    if (/環状|甲子園/.test(t)) return 'kanjo';
+    if (/テスト|現地/.test(t)) return 'test';
+    return '';
+  }
+
+  function inferCourseDirFromLabel(label) {
+    const t = String(label || '');
+    if (/下り/.test(t)) return 'down';
+    if (/上り/.test(t)) return 'up';
+    if (/周回|ラップ|外回り/.test(t)) return 'lap';
+    return '';
+  }
+
   function entryShareMeta(entry) {
     const routeLabel = (entry.label || '—').trim();
-    let courseName = COURSE_GROUP_LABELS[entry.courseGroup] || entry.courseGroup || '';
+    let courseGroup = entry.courseGroup || inferCourseGroupFromLabel(routeLabel);
+    let courseDir = entry.courseDir || inferCourseDirFromLabel(routeLabel);
+    if (entry.testMode) courseGroup = 'test';
+    let courseName = COURSE_GROUP_LABELS[courseGroup] || courseGroup || '';
     if (!courseName && routeLabel && routeLabel !== '—') {
       const head = routeLabel.split(/[·・]/)[0].trim();
       if (head) courseName = head;
@@ -260,7 +281,10 @@
       routeLabel,
       dirLabel,
       time: entry.time || '—',
-      gateName
+      gateName,
+      courseGroup,
+      courseDir,
+      testMode: !!entry.testMode
     };
   }
 
@@ -378,17 +402,44 @@
       ctx.fillText(ln, padX, courseY + i * 40);
     });
 
+    const panelBottom = 300 - 28 + panelH;
+    const mapX = 72;
+    const mapW = W - 144;
+    const mapTop = panelBottom + 28;
+    const mapBottom = 1060;
+    const mapH = Math.max(320, mapBottom - mapTop);
+    const drewMap = global.renderStoryCourseMap?.(ctx, mapX, mapTop, mapW, mapH, {
+      courseGroup: meta.courseGroup,
+      courseDir: meta.courseDir,
+      testMode: meta.testMode
+    });
+    if (!drewMap) {
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.06)';
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.3)';
+      ctx.lineWidth = 2;
+      ctx.fillRect(mapX, mapTop, mapW, mapH);
+      ctx.strokeRect(mapX, mapTop, mapW, mapH);
+      ctx.fillStyle = '#64748b';
+      ctx.font = `500 26px ${FONT_JP}`;
+      ctx.textAlign = 'center';
+      ctx.fillText('コースマップ', mapX + mapW / 2, mapTop + mapH / 2 - 12);
+      ctx.fillText(routeLabel, mapX + mapW / 2, mapTop + mapH / 2 + 28);
+      ctx.textAlign = 'left';
+    }
+
+    const timeY = drewMap ? mapTop + mapH + 72 : 1180;
+
     ctx.textAlign = 'center';
     ctx.fillStyle = '#00f0ff';
     ctx.font = `900 108px ${FONT_TIME}`;
     ctx.shadowColor = 'rgba(0, 240, 255, 0.55)';
     ctx.shadowBlur = 28;
-    ctx.fillText(time, W / 2, 1180);
+    ctx.fillText(time, W / 2, timeY);
     ctx.shadowBlur = 0;
 
     ctx.fillStyle = '#94a3b8';
     ctx.font = `600 34px ${FONT_LATIN}`;
-    ctx.fillText('LAP TIME', W / 2, 1240);
+    ctx.fillText('LAP TIME', W / 2, timeY + 60);
 
     const summaryParts = [courseName];
     if (routeLabel && routeLabel !== '—' && routeLabel !== courseName) {
@@ -404,7 +455,7 @@
     drawCenteredLines(
       ctx,
       summaryLines,
-      1290,
+      timeY + 110,
       46,
       `700 38px ${FONT_JP}`,
       '#f8fafc',

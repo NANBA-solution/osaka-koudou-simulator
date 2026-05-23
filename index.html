@@ -3802,6 +3802,124 @@
       return layout.segRanges.length - 1;
     }
 
+    /** IG共有画像の中央にコース走行ラインを描画 */
+    function resolveStoryCourseKey(groupId, dir) {
+      const g = COURSE_GROUPS.find((x) => x.id === groupId);
+      if (!g) return 'shigisan_up';
+      if (dir === 'lap' && g.down) return g.down;
+      if (g.downOnly || dir === 'down') return g.down || g.up;
+      return g.up || g.down || 'shigisan_up';
+    }
+
+    function renderStoryCourseMap(ctx, x, y, w, h, opts) {
+      if (!ctx || w < 40 || h < 40) return false;
+      const groupId = opts?.courseGroup || 'shigisan';
+      const dir = opts?.courseDir || 'up';
+      if (opts?.testMode || groupId === 'test') {
+        ctx.save();
+        ctx.fillStyle = 'rgba(0, 240, 255, 0.08)';
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeRect(x, y, w, h);
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '600 28px "Hiragino Sans", "Yu Gothic", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('テストコース（現地確認）', x + w / 2, y + h / 2);
+        ctx.restore();
+        return true;
+      }
+      const courseKey = resolveStoryCourseKey(groupId, dir);
+      const course = COURSES[courseKey];
+      if (!course?.path?.length) return false;
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.08)';
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.45)';
+      ctx.lineWidth = 2;
+      ctx.fillRect(x, y, w, h);
+      ctx.strokeRect(x, y, w, h);
+
+      const pad = 20;
+      const innerX = x + pad;
+      const innerY = y + pad;
+      const innerW = w - pad * 2;
+      const innerH = h - pad * 2;
+      ctx.beginPath();
+      ctx.rect(innerX, innerY, innerW, innerH);
+      ctx.clip();
+
+      const prevKey = state.courseKey;
+      state.courseKey = courseKey;
+      try {
+        ctx.translate(innerX, innerY);
+        const mapW = innerW;
+        const mapH = innerH;
+        const padMap = 18;
+        drawCoursePanelBg(ctx, mapW, mapH, padMap);
+        const viewRect = computeCourseRect(course, mapW, mapH, padMap);
+        if (!viewRect) return false;
+        const layout = buildTrackLayout(course, mapW, mapH, padMap, viewRect);
+        const { pts } = layout;
+        if (pts.length < 2) return false;
+
+        const strokePath = (color, width, blur) => {
+          ctx.beginPath();
+          ctx.moveTo(pts[0][0], pts[0][1]);
+          for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = width;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.shadowColor = color;
+          ctx.shadowBlur = blur;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+        };
+
+        strokePath('rgba(24,24,27,.9)', Math.max(10, innerW * 0.014), 0);
+        strokePath('#ffffff', Math.max(8, innerW * 0.011), 0);
+        strokePath('#dc2626', Math.max(5, innerW * 0.007), 2);
+
+        const lmXY = (u, v) => uvToCourseScreen(u, v, viewRect);
+        (course.landmarks || []).forEach((lm) => {
+          const [lx, ly] = lmXY(lm.u, lm.v);
+          ctx.fillStyle = '#e02020';
+          ctx.beginPath();
+          ctx.arc(lx, ly, 5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.font = 'bold 11px "Hiragino Sans", "Yu Gothic", sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillStyle = '#18181b';
+          ctx.fillText(lm.label, lx + 7, ly + 4);
+        });
+
+        const start = lmXY(course.path[0][0], course.path[0][1]);
+        const goal = lmXY(course.path[course.path.length - 1][0], course.path[course.path.length - 1][1]);
+        const drawPin = (p, label) => {
+          ctx.beginPath();
+          ctx.arc(p[0], p[1], 10, 0, Math.PI * 2);
+          ctx.fillStyle = '#ff3d3d';
+          ctx.fill();
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold 10px JetBrains Mono, monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(label, p[0], p[1] + 4);
+        };
+        drawPin(start, 'S');
+        drawPin(goal, 'F');
+        return true;
+      } finally {
+        state.courseKey = prevKey;
+        ctx.restore();
+      }
+    }
+
+    globalThis.renderStoryCourseMap = renderStoryCourseMap;
+
     function auditCourse(course) {
       const lenSum = course.segments.reduce((a, s) => a + s.len, 0);
       const last = course.segments[course.segments.length - 1];
@@ -5241,7 +5359,7 @@
     // PWA service worker (inline blob)
     if ('serviceWorker' in navigator) {
       const swCode = `
-        const CACHE='setup-lab-v29';
+        const CACHE='setup-lab-v30';
         self.addEventListener('install', e => {
           e.waitUntil(caches.open(CACHE).then(c => c.addAll([
             './','./index.html','./scripts/red-path-browser.js',
