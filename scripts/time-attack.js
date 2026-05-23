@@ -116,7 +116,7 @@
     return /Android/i.test(navigator.userAgent || '');
   }
 
-  /** 記録保存時に先読み — タップ直後の Web Share でジェスチャーを維持 */
+  /** 記録保存時に先読み — IG タップ後すぐ保存・起動できるように */
   const storyBlobCache = new Map();
   const STORY_CACHE_MAX = 30;
 
@@ -183,11 +183,6 @@
         a.remove();
       } catch (_) {}
     }
-  }
-
-  function openInstagramAfterClipboard() {
-    openInstagramSchemesSync();
-    global.setTimeout(openInstagramSchemesSync, 250);
   }
 
   /** X 投稿画面へ（intent/tweet — モバイルでは X アプリが開く） */
@@ -331,6 +326,11 @@
     });
   }
 
+  function storyImageFilename(timeLabel) {
+    const safe = String(timeLabel || 'lap').replace(/[^\dA-Za-z-]+/g, '-');
+    return `osaka-koudou-lap-${safe}.png`;
+  }
+
   function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
     const a = global.document.createElement('a');
@@ -339,43 +339,30 @@
     global.document.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    global.setTimeout(() => URL.revokeObjectURL(url), 2000);
   }
 
   /**
-   * Instagramストーリー — Web Share（画像付き）→ クリップボード＋アプリ起動の順で試行
-   * ※ Web から X のように完全自動投稿は不可（Meta 仕様）。共有シートの Instagram が最も確実
+   * IGタップ — 画像を端末に保存してから Instagram アプリを起動
    */
-  async function deliverInstagramStory(blob) {
+  async function saveImageAndOpenInstagram(blob, timeLabel) {
     if (!blob) {
       global.alert('ストーリー用画像の作成に失敗しました。');
       return;
     }
-    const file = new File([blob], 'osaka-koudou-lap.png', { type: 'image/png' });
-    const shareData = {
-      files: [file],
-      title: 'タイムアタック',
-      text: '大阪公道シミュレーター · GPSタイムアタック'
-    };
-    const canShareFiles =
-      !!global.navigator.share && !!global.navigator.canShare?.(shareData);
 
-    if (canShareFiles) {
-      try {
-        await global.navigator.share(shareData);
-        return;
-      } catch (err) {
-        if (err?.name === 'AbortError') return;
-      }
-    }
+    const filename = storyImageFilename(timeLabel);
+    downloadBlob(blob, filename);
+    await copyImageToClipboard(blob);
 
     if (isMobileOrStandalone()) {
-      await copyImageToClipboard(blob);
-      openInstagramAfterClipboard();
+      global.setTimeout(() => {
+        openInstagramSchemesSync();
+        global.setTimeout(openInstagramSchemesSync, 450);
+      }, 200);
       return;
     }
 
-    downloadBlob(blob, 'osaka-koudou-lap.png');
     global.alert(
       '画像をダウンロードしました。\nスマホのInstagramアプリでストーリーに画像を追加してください。'
     );
@@ -383,11 +370,12 @@
 
   async function shareToInstagramStory(courseName, time, gateName) {
     const blob = await buildStoryImageBlob(courseName, time, gateName);
-    await deliverInstagramStory(blob);
+    await saveImageAndOpenInstagram(blob, time);
   }
 
   global.shareToInstagramStory = shareToInstagramStory;
-  global.deliverInstagramStory = deliverInstagramStory;
+  global.saveImageAndOpenInstagram = saveImageAndOpenInstagram;
+  global.deliverInstagramStory = saveImageAndOpenInstagram;
 
   function newRecordId() {
     return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -631,10 +619,6 @@
       if (!entry) return;
       const meta = entryShareMeta(entry);
 
-      if (isIOS() && isMobileOrStandalone()) {
-        openInstagramSchemesSync();
-      }
-
       const cached = storyBlobCache.get(id);
       const run = cached
         ? Promise.resolve(cached)
@@ -644,7 +628,10 @@
           });
 
       run
-        .then((blob) => deliverInstagramStory(blob))
+        .then((blob) => saveImageAndOpenInstagram(blob, meta.time))
+        .then(() => {
+          addGpsLog('IG: 画像を保存 → Instagram を起動');
+        })
         .catch(() => {
           global.alert('共有できませんでした。');
         });
@@ -671,7 +658,7 @@
           `<div class="text-[9px] text-slate-600">${date}</div></div>` +
           `<div class="attack-record-actions">` +
           `<button type="button" class="attack-record-share" data-share-id="${id}" aria-label="Xで共有">X</button>` +
-          `<button type="button" class="attack-record-share attack-record-share--ig" data-share-ig-id="${id}" aria-label="Instagramストーリーで共有" title="共有シートでInstagram→ストーリーを選択">IG</button>` +
+          `<button type="button" class="attack-record-share attack-record-share--ig" data-share-ig-id="${id}" aria-label="画像を保存してInstagramストーリーを開く" title="画像を自動保存してInstagramを起動">IG</button>` +
           `<button type="button" class="attack-record-del" data-delete-id="${id}" aria-label="この記録を削除">削除</button>` +
           `</div></article>`
         );
