@@ -543,14 +543,11 @@
             <p class="text-[9px] text-slate-600 tracking-wider uppercase">コース選択</p>
             <div class="flex gap-1 flex-wrap" id="attackCourseTabs" role="tablist" aria-label="タイムアタックコース"></div>
             <button type="button" id="attackDirToggle" class="course-dir-btn w-full" title="上り／下り切替">↑ 上り</button>
-            <p class="text-[9px] text-amber-500/95 leading-relaxed border border-amber-900/40 bg-amber-950/20 rounded px-2 py-1.5" role="note">
-              ※ 計測するコースを上で指定してから GPS を ON にしてください。選択中コースのゲートだけが有効で、別コースの計測地点を通っても記録されません。
-            </p>
             <p id="attackGateNote" class="text-[10px] text-slate-500 leading-relaxed">計測地点（ゲート）のラインを通過するとタイムを計測します</p>
           </div>
           <p id="attackStatus" class="text-xs font-bold tracking-wide text-slate-500">計測地点を通過するとスタート／ゴールを判定します</p>
           <p class="text-[9px] text-amber-500/95 leading-relaxed border border-amber-900/40 bg-amber-950/20 rounded px-2 py-1.5" role="note">
-            ※ 計測中は画面をオフにしないでください。画面ロックやアプリをバックグラウンドにすると、タイムが止まったり記録がずれる場合があります。
+            ※ 計測するコースを上で指定してから GPS を ON にしてください。選択中コースのゲートだけが有効です。計測中は画面をオフにせず、画面ロックやバックグラウンドではタイムがずれる場合があります。
           </p>
           <p id="attackCoords" class="text-[10px] text-slate-600 font-mono tabular-nums">—</p>
           <div class="bg-black/50 border border-motec-border rounded p-3 text-center">
