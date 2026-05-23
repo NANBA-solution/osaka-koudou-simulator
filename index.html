@@ -216,6 +216,12 @@
       color: #fbcfe8;
       background: rgba(225, 48, 108, 0.12);
     }
+    .attack-record-share--save { color: #67e8f9; border-color: #0e7490; }
+    .attack-record-share--save:hover {
+      border-color: #00e5ff;
+      color: #cffafe;
+      background: rgba(0, 229, 255, 0.1);
+    }
     .attack-record-del { color: #64748b; background: transparent; }
     .attack-record-del:hover { border-color: #f87171; color: #fca5a5; }
     .parts-tab {
@@ -433,7 +439,7 @@
               <p class="text-[9px] text-slate-600 tracking-wider uppercase">タイム記録 <span id="attackLogCount" class="text-slate-500 normal-case">(0)</span></p>
               <button type="button" id="attackLogClearAll" class="text-[9px] text-slate-600 hover:text-red-400 border border-motec-border px-1.5 py-0.5 rounded" title="全記録を削除">全削除</button>
             </div>
-            <p class="text-[9px] text-slate-600 mb-1">端末に保存 · ゴール地点通過で自動追加</p>
+            <p class="text-[9px] text-slate-600 mb-1">保存＝画像をフォトへ · IG＝Instagramを開く（画像は自動保存）</p>
             <div id="attackLogList" class="text-[11px] space-y-1 font-mono"></div>
           </div>
         </section>
@@ -5452,7 +5458,7 @@
     // PWA service worker (inline blob)
     if ('serviceWorker' in navigator) {
       const swCode = `
-        const CACHE='setup-lab-v36';
+        const CACHE='setup-lab-v37';
         self.addEventListener('install', e => {
           e.waitUntil(caches.open(CACHE).then(c => c.addAll([
             './','./index.html','./scripts/red-path-browser.js',
