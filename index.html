@@ -828,7 +828,7 @@
   <script src="scripts/red-path-browser.js"></script>
   <script src="scripts/road-gate.js"></script>
   <script src="scripts/attack-gates.js"></script>
-  <script src="scripts/time-attack.js?v=47"></script>
+  <script src="scripts/time-attack.js?v=50"></script>
   <script>
   (function () {
     'use strict';
@@ -5634,48 +5634,39 @@
 
     window.addEventListener('resize', () => drawCourse());
 
-    // PWA service worker (inline blob)
+    // PWA（ホーム画面）— 静的 sw.js で更新を配信
     if ('serviceWorker' in navigator) {
-      const swCode = `
-        const CACHE='setup-lab-v48';
-        const PRECACHE=[
-          './','./index.html',
-          './scripts/red-path-browser.js','./scripts/road-gate.js','./scripts/attack-gates.js',
-          './scripts/time-attack.js','./scripts/time-attack.js?v=47',
-          './assets/shigisan-ref.png','./assets/minoo-ref.png','./assets/hanna-ref.png',
-          './assets/hanna-up-map.png','./assets/kanjo-ref.png'
-        ];
-        self.addEventListener('install', e => {
-          e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE)));
-          self.skipWaiting();
-        });
-        self.addEventListener('activate', e => {
-          e.waitUntil(caches.keys().then(keys => Promise.all(
-            keys.filter(k => k !== CACHE).map(k => caches.delete(k))
-          )));
-          self.clients.claim();
-        });
-        self.addEventListener('fetch', e => {
-          const url = new URL(e.request.url);
-          const fresh = url.pathname.endsWith('.js') || url.pathname.endsWith('.html');
-          if (fresh) {
-            e.respondWith(fetch(e.request).then(res => {
-              if (res && res.ok) {
-                const copy = res.clone();
-                caches.open(CACHE).then(c => c.put(e.request, copy));
+      let swRefreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (swRefreshing) return;
+        swRefreshing = true;
+        window.location.reload();
+      });
+
+      (async () => {
+        try {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(
+            regs
+              .filter((reg) => {
+                const url = reg.active?.scriptURL || reg.installing?.scriptURL || '';
+                return url.startsWith('blob:');
+              })
+              .map((reg) => reg.unregister())
+          );
+          const reg = await navigator.serviceWorker.register('./sw.js', { scope: './' });
+          reg.addEventListener('updatefound', () => {
+            const worker = reg.installing;
+            if (!worker) return;
+            worker.addEventListener('statechange', () => {
+              if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+                worker.postMessage('SKIP_WAITING');
               }
-              return res;
-            }).catch(() => caches.match(e.request)));
-            return;
-          }
-          e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
-        });
-      `;
-      try {
-        const blob = new Blob([swCode], { type: 'application/javascript' });
-        const url = URL.createObjectURL(blob);
-        navigator.serviceWorker.register(url).catch(() => {});
-      } catch (_) {}
+            });
+          });
+          await reg.update();
+        } catch (_) {}
+      })();
     }
 
     if (window.TimeAttack) {
@@ -5725,22 +5716,12 @@
       window.navigator.standalone === true ||
       window.matchMedia('(display-mode: standalone)').matches;
 
-    if (!isHomeApp) return;
+    if (!isHomeApp || !('serviceWorker' in navigator)) return;
 
-    const LAST_CHECK_KEY = 'app_latest_check_time';
-    const lastCheck = localStorage.getItem(LAST_CHECK_KEY);
-    const now = Date.now();
-    const sixHours = 6 * 60 * 60 * 1000;
-
-    if (!lastCheck || now - parseInt(lastCheck, 10) > sixHours) {
-      localStorage.setItem(LAST_CHECK_KEY, now.toString());
-
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistration().then((reg) => reg?.update()).catch(() => {});
-      }
-
-      window.location.reload();
-    }
+    navigator.serviceWorker
+      .getRegistration()
+      .then((reg) => reg?.update())
+      .catch(() => {});
   });
   </script>
 </body>
