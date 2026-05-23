@@ -135,7 +135,7 @@
   const storyBlobCache = new Map();
   const STORY_CACHE_MAX = 30;
   /** 画像レイアウト変更時に increment（古いキャッシュを無効化） */
-  const STORY_IMG_VER = 12;
+  const STORY_IMG_VER = 13;
   const STORY_FONT_LINK_ID = 'story-noto-sans-jp-css';
   /** Canvas は先頭フォントのみ使うため JetBrains を日本語に使わない */
   const FONT_JP =
@@ -472,19 +472,40 @@
     const pad = 32;
     const innerW = cardW - pad * 2;
     const cx = cardX + cardW / 2;
-    const subtitle = storyCourseSubtitle(courseName, routeLabel, dirLabel);
     const panelY = startY || 248;
+    const TITLE_SIZE = 44;
+    const TITLE_LH = 56;
+    const SUB_SIZE = 22;
+    const SUB_LH = 32;
+    const SUB_GAP = 14;
+    const LABEL_LH = 28;
 
-    ctx.font = `700 46px ${FONT_JP}`;
-    const titleLines = wrapLines(ctx, courseName, innerW).slice(0, 2);
+    const route = (routeLabel || '').trim();
+    let displayTitle = (courseName || '—').trim() || '—';
+    let subtitle = '';
+    if (route && route !== '—') {
+      if (route === displayTitle) {
+        subtitle = '';
+      } else if (route.includes(displayTitle) && route.length > displayTitle.length + 1) {
+        displayTitle = route;
+        subtitle = '';
+      } else {
+        subtitle = storyCourseSubtitle(courseName, routeLabel, dirLabel);
+      }
+    }
+
+    ctx.font = `700 ${TITLE_SIZE}px ${FONT_JP}`;
+    const titleLines = wrapLines(ctx, displayTitle, innerW).slice(0, 2);
     let subLines = [];
     if (subtitle) {
-      ctx.font = `400 24px ${FONT_JP}`;
+      ctx.font = `400 ${SUB_SIZE}px ${FONT_JP}`;
       subLines = wrapLines(ctx, subtitle, innerW).slice(0, 2);
     }
 
-    let contentH = 24 + titleLines.length * 50;
-    if (subLines.length) contentH += 12 + subLines.length * 30;
+    const contentH =
+      LABEL_LH +
+      titleLines.length * TITLE_LH +
+      (subLines.length ? SUB_GAP + subLines.length * SUB_LH : 0);
     const panelH = contentH + pad * 2;
 
     ctx.save();
@@ -498,26 +519,26 @@
     ctx.fillRect(cardX + 32, panelY, cardW - 64, 2);
     ctx.restore();
 
-    let y = panelY + pad + 16;
+    let y = panelY + pad + 18;
     ctx.textAlign = 'center';
     ctx.fillStyle = 'rgba(0, 229, 255, 0.65)';
     ctx.font = `500 17px ${FONT_JP}`;
     ctx.fillText('コース', cx, y);
-    y += 30;
+    y += LABEL_LH;
 
     ctx.fillStyle = '#f1f5f9';
-    ctx.font = `700 46px ${FONT_JP}`;
+    ctx.font = `700 ${TITLE_SIZE}px ${FONT_JP}`;
     titleLines.forEach((ln, i) => {
-      ctx.fillText(ln, cx, y + i * 50);
+      ctx.fillText(ln, cx, y + i * TITLE_LH);
     });
-    y += titleLines.length * 50;
+    y += titleLines.length * TITLE_LH;
 
     if (subLines.length) {
-      y += 12;
+      y += SUB_GAP;
       ctx.fillStyle = '#94a3b8';
-      ctx.font = `400 24px ${FONT_JP}`;
+      ctx.font = `400 ${SUB_SIZE}px ${FONT_JP}`;
       subLines.forEach((ln, i) => {
-        ctx.fillText(ln, cx, y + i * 30);
+        ctx.fillText(ln, cx, y + i * SUB_LH);
       });
     }
 
@@ -794,15 +815,6 @@
         try {
           await saveBlobToPhotos(blob, storyImageFilename(timeLabel));
           copyImageToClipboard(blob).catch(() => {});
-          if (addGpsLogFn) {
-            addGpsLogFn('保存: 共有シートで「写真に保存」を選ぶか、画像を長押し');
-          }
-          if (isMobileOrStandalone()) {
-            global.alert(
-              '共有シートが開きます。\n「写真に保存」または「イメージを保存」を選んでください。\n\n' +
-                '出ない場合は、表示中の画像を長押し → 「写真に保存」でも保存できます。'
-            );
-          }
           saveBtn.textContent = '保存しました';
           global.setTimeout(() => {
             saveBtn.textContent = '保存';
