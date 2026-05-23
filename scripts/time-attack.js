@@ -135,7 +135,7 @@
   const storyBlobCache = new Map();
   const STORY_CACHE_MAX = 30;
   /** 画像レイアウト変更時に increment（古いキャッシュを無効化） */
-  const STORY_IMG_VER = 13;
+  const STORY_IMG_VER = 14;
   const STORY_FONT_LINK_ID = 'story-noto-sans-jp-css';
   /** Canvas は先頭フォントのみ使うため JetBrains を日本語に使わない */
   const FONT_JP =
@@ -164,8 +164,9 @@
       if (!doc.fonts?.load) return;
       try {
         await Promise.all([
-          doc.fonts.load(`700 52px ${FONT_JP}`),
-          doc.fonts.load(`500 30px ${FONT_JP}`),
+          doc.fonts.load(`700 42px ${FONT_JP}`),
+          doc.fonts.load(`700 30px ${FONT_JP}`),
+          doc.fonts.load(`500 22px ${FONT_JP}`),
           doc.fonts.load(`900 108px ${FONT_TIME}`)
         ]);
         await doc.fonts.ready;
@@ -334,6 +335,55 @@
     return lines.length ? lines : ['—'];
   }
 
+  function parseFontPx(font) {
+    const m = /(\d+(?:\.\d+)?)\s*px/.exec(font || '');
+    return m ? Number(m[1]) : 16;
+  }
+
+  /** 日本語フォントの実際の行高（ベースライン重なり防止） */
+  function lineHeightForFont(ctx, font, extraGap) {
+    const px = parseFontPx(font);
+    ctx.font = font;
+    const m = ctx.measureText('信貴山Ag');
+    const ascent = m.actualBoundingBoxAscent > 0 ? m.actualBoundingBoxAscent : px * 0.92;
+    const descent = m.actualBoundingBoxDescent > 0 ? m.actualBoundingBoxDescent : px * 0.28;
+    const gap = extraGap != null ? extraGap : Math.max(10, Math.round(px * 0.2));
+    return Math.ceil(ascent + descent + gap);
+  }
+
+  function storyCourseDisplayTitle(courseName, routeLabel) {
+    const name = (courseName || '—').trim() || '—';
+    const route = (routeLabel || '').trim();
+    if (!route || route === '—' || route === name) return name;
+    if (route.includes(name) && route.length > name.length + 1) return route;
+    return name;
+  }
+
+  function storyCourseDisplaySubtitle(courseName, routeLabel, dirLabel) {
+    const route = (routeLabel || '').trim();
+    const name = (courseName || '—').trim() || '—';
+    if (!route || route === '—') return '';
+    if (route.includes(name) && route.length > name.length + 1) return '';
+    return storyCourseSubtitle(courseName, routeLabel, dirLabel);
+  }
+
+  /** 幅に収まるまで縮小、それでも無理なら最大2行 */
+  function fitStoryCourseTitle(ctx, text, maxW, maxPx, minPx) {
+    let size = maxPx;
+    while (size >= minPx) {
+      const font = `700 ${size}px ${FONT_JP}`;
+      ctx.font = font;
+      if (ctx.measureText(text).width <= maxW) {
+        return { font, lines: [text], lineH: lineHeightForFont(ctx, font) };
+      }
+      size -= 2;
+    }
+    const font = `700 ${minPx}px ${FONT_JP}`;
+    ctx.font = font;
+    const lines = wrapLines(ctx, text, maxW).slice(0, 2);
+    return { font, lines, lineH: lineHeightForFont(ctx, font) };
+  }
+
   function routeLabelShowsDir(routeLabel, dirLabel) {
     if (!dirLabel || dirLabel === 'テスト' || dirLabel === '周回') return true;
     if (dirLabel === '上り') return /上り/.test(routeLabel);
@@ -469,43 +519,37 @@
   function drawStoryCourseCard(ctx, W, courseName, routeLabel, dirLabel, startY) {
     const cardX = 56;
     const cardW = W - cardX * 2;
-    const pad = 32;
+    const pad = 36;
     const innerW = cardW - pad * 2;
     const cx = cardX + cardW / 2;
     const panelY = startY || 248;
-    const TITLE_SIZE = 44;
-    const TITLE_LH = 56;
-    const SUB_SIZE = 22;
-    const SUB_LH = 32;
-    const SUB_GAP = 14;
-    const LABEL_LH = 28;
 
-    const route = (routeLabel || '').trim();
-    let displayTitle = (courseName || '—').trim() || '—';
-    let subtitle = '';
-    if (route && route !== '—') {
-      if (route === displayTitle) {
-        subtitle = '';
-      } else if (route.includes(displayTitle) && route.length > displayTitle.length + 1) {
-        displayTitle = route;
-        subtitle = '';
-      } else {
-        subtitle = storyCourseSubtitle(courseName, routeLabel, dirLabel);
-      }
-    }
+    const displayTitle = storyCourseDisplayTitle(courseName, routeLabel);
+    const subtitle = storyCourseDisplaySubtitle(courseName, routeLabel, dirLabel);
 
-    ctx.font = `700 ${TITLE_SIZE}px ${FONT_JP}`;
-    const titleLines = wrapLines(ctx, displayTitle, innerW).slice(0, 2);
+    const labelFont = `500 17px ${FONT_JP}`;
+    const labelH = lineHeightForFont(ctx, labelFont, 8);
+    const titleFit = fitStoryCourseTitle(ctx, displayTitle, innerW, 42, 30);
+    const titleLines = titleFit.lines;
+    const titleFont = titleFit.font;
+    const titleLineH = titleFit.lineH;
+
     let subLines = [];
+    let subFont = '';
+    let subLineH = 0;
+    const SUB_GAP = 12;
     if (subtitle) {
-      ctx.font = `400 ${SUB_SIZE}px ${FONT_JP}`;
+      subFont = `400 22px ${FONT_JP}`;
+      ctx.font = subFont;
       subLines = wrapLines(ctx, subtitle, innerW).slice(0, 2);
+      subLineH = lineHeightForFont(ctx, subFont, 8);
     }
 
     const contentH =
-      LABEL_LH +
-      titleLines.length * TITLE_LH +
-      (subLines.length ? SUB_GAP + subLines.length * SUB_LH : 0);
+      labelH +
+      10 +
+      titleLines.length * titleLineH +
+      (subLines.length ? SUB_GAP + subLines.length * subLineH : 0);
     const panelH = contentH + pad * 2;
 
     ctx.save();
@@ -519,29 +563,34 @@
     ctx.fillRect(cardX + 32, panelY, cardW - 64, 2);
     ctx.restore();
 
-    let y = panelY + pad + 18;
+    ctx.save();
+    ctx.textBaseline = 'top';
     ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(0, 229, 255, 0.65)';
-    ctx.font = `500 17px ${FONT_JP}`;
-    ctx.fillText('コース', cx, y);
-    y += LABEL_LH;
 
+    let y = panelY + pad;
+    ctx.font = labelFont;
+    ctx.fillStyle = 'rgba(0, 229, 255, 0.65)';
+    ctx.fillText('コース', cx, y);
+    y += labelH + 10;
+
+    ctx.font = titleFont;
     ctx.fillStyle = '#f1f5f9';
-    ctx.font = `700 ${TITLE_SIZE}px ${FONT_JP}`;
-    titleLines.forEach((ln, i) => {
-      ctx.fillText(ln, cx, y + i * TITLE_LH);
+    titleLines.forEach((ln) => {
+      ctx.fillText(ln, cx, y);
+      y += titleLineH;
     });
-    y += titleLines.length * TITLE_LH;
 
     if (subLines.length) {
       y += SUB_GAP;
+      ctx.font = subFont;
       ctx.fillStyle = '#94a3b8';
-      ctx.font = `400 ${SUB_SIZE}px ${FONT_JP}`;
-      subLines.forEach((ln, i) => {
-        ctx.fillText(ln, cx, y + i * SUB_LH);
+      subLines.forEach((ln) => {
+        ctx.fillText(ln, cx, y);
+        y += subLineH;
       });
     }
 
+    ctx.restore();
     return panelY + panelH;
   }
 
@@ -628,7 +677,7 @@
 
     drawStoryBackground(ctx, W, H);
     const headerBottom = drawStoryHeader(ctx, W);
-    const courseTop = headerBottom + 20;
+    const courseTop = headerBottom + 28;
     const panelBottom = drawStoryCourseCard(ctx, W, courseName, routeLabel, dirLabel, courseTop);
 
     const mapX = cardX;
