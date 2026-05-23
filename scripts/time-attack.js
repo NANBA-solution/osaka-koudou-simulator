@@ -120,7 +120,7 @@
   const storyBlobCache = new Map();
   const STORY_CACHE_MAX = 30;
   /** 画像レイアウト変更時に increment（古いキャッシュを無効化） */
-  const STORY_IMG_VER = 7;
+  const STORY_IMG_VER = 8;
   const STORY_FONT_LINK_ID = 'story-noto-sans-jp-css';
   /** Canvas は先頭フォントのみ使うため JetBrains を日本語に使わない */
   const FONT_JP =
@@ -531,35 +531,44 @@
     ctx.shadowBlur = 0;
   }
 
-  async function buildStoryImageBlob(meta) {
+  async function buildStoryImageBlob(meta, opts) {
     const courseName = (meta.courseName || '—').trim() || '—';
     const routeLabel = (meta.routeLabel || meta.gateName || '—').trim() || '—';
     const dirLabel = meta.dirLabel || '';
     const time = meta.time || '—';
     const W = 1080;
     const H = 1920;
-    await ensureStoryCanvasFonts();
+    if (!opts?.skipFontWait) {
+      await ensureStoryCanvasFonts();
+    }
     const canvas = document.createElement('canvas');
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
+    try {
     drawStoryBackground(ctx, W, H);
     drawStoryHeader(ctx, W);
 
     const cardX = 56;
+    const cardW = W - cardX * 2;
     const panelBottom = drawStoryCourseCard(ctx, W, courseName, routeLabel, dirLabel);
     const mapX = cardX;
     const mapW = cardW;
     const mapTop = panelBottom + 20;
     const mapBottom = 1000;
-    const mapH = Math.max(340, mapBottom - mapTop);
-    const drewMap = global.renderStoryCourseMap?.(ctx, mapX, mapTop, mapW, mapH, {
-      courseGroup: meta.courseGroup,
-      courseDir: meta.courseDir,
-      testMode: meta.testMode
-    });
+    const mapH = Math.max(200, Math.min(520, mapBottom - mapTop));
+    let drewMap = false;
+    try {
+      drewMap = !!global.renderStoryCourseMap?.(ctx, mapX, mapTop, mapW, mapH, {
+        courseGroup: meta.courseGroup,
+        courseDir: meta.courseDir,
+        testMode: meta.testMode
+      });
+    } catch (mapErr) {
+      console.warn('renderStoryCourseMap failed', mapErr);
+    }
     if (!drewMap) {
       drawGlassPanel(ctx, mapX, mapTop, mapW, mapH, 14);
       ctx.fillStyle = '#64748b';
@@ -584,6 +593,10 @@
     const host = SHARE_APP_URL.replace(/^https?:\/\//, '');
     ctx.fillText(host, W / 2, H - 158);
     ctx.shadowBlur = 0;
+    } catch (err) {
+      console.error('buildStoryImageBlob failed', err);
+      return null;
+    }
 
     return new Promise((resolve) => {
       canvas.toBlob((blob) => resolve(blob), 'image/png');
@@ -886,6 +899,16 @@
       shareToX(meta.courseName, meta.time, meta.gateName);
     }
 
+    function deliverInstagramShare(blob, meta, entryId) {
+      if (!blob) {
+        global.alert('ストーリー用画像の作成に失敗しました。');
+        return;
+      }
+      if (entryId) storyBlobCache.set(storyCacheKey(entryId), blob);
+      saveAndLaunchInstagramSync(blob, meta.time);
+      addGpsLog('IG: 画像を保存 → Instagram を起動');
+    }
+
     function shareRecordToInstagram(id) {
       const entry = loadLog().find((e) => e.id === id);
       if (!entry) return;
@@ -893,23 +916,15 @@
       const cached = storyBlobCache.get(storyCacheKey(id));
 
       if (cached) {
-        saveAndLaunchInstagramSync(cached, meta.time);
-        addGpsLog('IG: 画像を保存 → Instagram を起動');
+        deliverInstagramShare(cached, meta, id);
         return;
       }
 
       addGpsLog('IG: 画像を準備中…');
-      buildStoryImageBlob(meta)
-        .then((blob) => {
-          if (!blob) {
-            global.alert('ストーリー用画像の作成に失敗しました。');
-            return;
-          }
-          storyBlobCache.set(storyCacheKey(id), blob);
-          saveAndLaunchInstagramSync(blob, meta.time);
-          addGpsLog('IG: 画像を保存 → Instagram を起動');
-        })
-        .catch(() => {
+      buildStoryImageBlob(meta, { skipFontWait: true })
+        .then((blob) => deliverInstagramShare(blob, meta, id))
+        .catch((err) => {
+          console.error('IG share failed', err);
           global.alert('共有できませんでした。');
         });
     }
@@ -1444,6 +1459,7 @@
     if (els.clearAllBtn) els.clearAllBtn.addEventListener('click', clearAllRecords);
 
     renderLogList();
+    ensureStoryCanvasFonts();
     setGpsPower(false);
     setStatus(MSG.off, 'off');
     updateLapButtons();
