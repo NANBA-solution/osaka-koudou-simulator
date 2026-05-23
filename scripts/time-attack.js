@@ -108,6 +108,32 @@
     );
   }
 
+  function isIOS() {
+    return /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+  }
+
+  function isAndroid() {
+    return /Android/i.test(navigator.userAgent || '');
+  }
+
+  /** iOS: 画像をクリップボードへ（instagram-stories:// が参照） */
+  async function copyImageToClipboard(blob) {
+    if (!global.navigator.clipboard?.write || !global.ClipboardItem) return false;
+    try {
+      await global.navigator.clipboard.write([
+        new global.ClipboardItem({ 'image/png': blob })
+      ]);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /** X共有と同様 — 同一タブで Instagram ストーリー作成へ Handoff */
+  function handoffInstagramStoriesApp() {
+    global.location.href = 'instagram-stories://share';
+  }
+
   /** X 投稿画面へ（intent/tweet — モバイルでは X アプリが開く） */
   function xIntentTweetUrl(text) {
     const params = new URLSearchParams();
@@ -261,7 +287,7 @@
   }
 
   /**
-   * Instagramストーリー — 画像を Web Share（モバイルで IG 選択可）または保存
+   * Instagramストーリー — モバイルは画像を渡して instagram-stories:// へ自動遷移（X共有と同様）
    */
   async function shareToInstagramStory(courseName, time, gateName) {
     const blob = await buildStoryImageBlob(courseName, time, gateName);
@@ -271,7 +297,34 @@
     }
     const file = new File([blob], 'osaka-koudou-lap.png', { type: 'image/png' });
     const shareData = { files: [file], title: 'タイムアタック' };
-    if (global.navigator.share && global.navigator.canShare?.(shareData)) {
+    const canShareFiles =
+      !!global.navigator.share && !!global.navigator.canShare?.(shareData);
+
+    if (isMobileOrStandalone()) {
+      if (isAndroid() && canShareFiles) {
+        try {
+          await global.navigator.share(shareData);
+          return;
+        } catch (err) {
+          if (err?.name === 'AbortError') return;
+        }
+      }
+
+      const copied = await copyImageToClipboard(blob);
+      if (!copied && isIOS() && canShareFiles) {
+        try {
+          await global.navigator.share(shareData);
+          return;
+        } catch (err) {
+          if (err?.name === 'AbortError') return;
+        }
+      }
+
+      handoffInstagramStoriesApp();
+      return;
+    }
+
+    if (canShareFiles) {
       try {
         await global.navigator.share(shareData);
         return;
@@ -279,16 +332,11 @@
         if (err?.name === 'AbortError') return;
       }
     }
+
     downloadBlob(blob, 'osaka-koudou-lap.png');
-    if (isMobileOrStandalone()) {
-      global.alert(
-        '画像を保存しました。\nInstagramを開き、ストーリー作成で画像を選んで追加してください。'
-      );
-    } else {
-      global.alert(
-        '画像をダウンロードしました。\nスマホのInstagramアプリでストーリーに画像を追加してください。'
-      );
-    }
+    global.alert(
+      '画像をダウンロードしました。\nスマホのInstagramアプリでストーリーに画像を追加してください。'
+    );
   }
 
   global.shareToInstagramStory = shareToInstagramStory;
