@@ -206,6 +206,12 @@
     }
     .attack-record-share { color: #e2e8f0; border-color: #3f3f46; }
     .attack-record-share:hover { border-color: #00e5ff; color: #00e5ff; background: rgba(0,229,255,.08); }
+    .attack-record-share--ig { color: #f9a8d4; border-color: #831843; }
+    .attack-record-share--ig:hover {
+      border-color: #e1306c;
+      color: #fbcfe8;
+      background: rgba(225, 48, 108, 0.12);
+    }
     .attack-record-del { color: #64748b; background: transparent; }
     .attack-record-del:hover { border-color: #f87171; color: #fca5a5; }
     .parts-tab {
@@ -5234,7 +5240,7 @@
     // PWA service worker (inline blob)
     if ('serviceWorker' in navigator) {
       const swCode = `
-        const CACHE='setup-lab-v21';
+        const CACHE='setup-lab-v22';
         self.addEventListener('install', e => {
           e.waitUntil(caches.open(CACHE).then(c => c.addAll([
             './','./index.html','./scripts/red-path-browser.js',

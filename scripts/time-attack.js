@@ -140,6 +140,159 @@
 
   global.shareToX = shareToX;
 
+  function entryShareMeta(entry) {
+    const courseName = COURSE_GROUP_LABELS[entry.courseGroup] || entry.courseGroup || '—';
+    let gateName = entry.label || '—';
+    if (entry.testMode) gateName += ' (現地確認)';
+    return { courseName, time: entry.time || '—', gateName };
+  }
+
+  function wrapLines(ctx, text, maxWidth) {
+    const lines = [];
+    let line = '';
+    for (const ch of String(text)) {
+      const test = line + ch;
+      if (ctx.measureText(test).width > maxWidth && line) {
+        lines.push(line);
+        line = ch;
+      } else {
+        line = test;
+      }
+    }
+    if (line) lines.push(line);
+    return lines.length ? lines : ['—'];
+  }
+
+  async function buildStoryImageBlob(courseName, time, gateName) {
+    const W = 1080;
+    const H = 1920;
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    if (global.document?.fonts?.load) {
+      try {
+        await Promise.all([
+          global.document.fonts.load('900 108px Orbitron'),
+          global.document.fonts.load('600 36px "JetBrains Mono"')
+        ]);
+      } catch (_) {}
+    }
+
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#0a1018');
+    bg.addColorStop(0.45, '#05070a');
+    bg.addColorStop(1, '#0d1219');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(48, 48, W - 96, H - 96);
+
+    ctx.shadowColor = 'rgba(0, 240, 255, 0.45)';
+    ctx.shadowBlur = 24;
+    ctx.strokeStyle = '#00f0ff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(72, 72, W - 144, H - 144);
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = 'rgba(0, 229, 255, 0.12)';
+    ctx.fillRect(72, 72, W - 144, 4);
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#64748b';
+    ctx.font = '600 28px "JetBrains Mono", ui-monospace, monospace';
+    ctx.fillText('OSAKA KOUDO SIMULATOR', W / 2, 200);
+    ctx.fillStyle = '#f87171';
+    ctx.font = '700 32px "JetBrains Mono", ui-monospace, monospace';
+    ctx.fillText('GPS TIME ATTACK', W / 2, 248);
+
+    ctx.fillStyle = '#00f0ff';
+    ctx.font = '900 108px Orbitron, ui-monospace, monospace';
+    ctx.shadowColor = 'rgba(0, 240, 255, 0.55)';
+    ctx.shadowBlur = 28;
+    ctx.fillText(time, W / 2, 520);
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '600 34px "JetBrains Mono", ui-monospace, monospace';
+    ctx.fillText('LAP TIME', W / 2, 580);
+
+    const padX = 120;
+    const maxW = W - padX * 2;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = '600 32px "JetBrains Mono", ui-monospace, monospace';
+    ctx.fillText(`▶ コース: ${courseName}`, padX, 720);
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '500 28px "JetBrains Mono", ui-monospace, monospace';
+    const gateLines = wrapLines(ctx, `📍 ${gateName}`, maxW);
+    gateLines.forEach((ln, i) => {
+      ctx.fillText(ln, padX, 780 + i * 40);
+    });
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#475569';
+    ctx.font = '500 24px "JetBrains Mono", ui-monospace, monospace';
+    ctx.fillText('#大阪公道シミュレーター #タイムアタック', W / 2, H - 220);
+    ctx.fillStyle = '#00e5ff';
+    ctx.font = '600 22px "JetBrains Mono", ui-monospace, monospace';
+    const host = SHARE_APP_URL.replace(/^https?:\/\//, '');
+    ctx.fillText(host, W / 2, H - 170);
+
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => resolve(blob), 'image/png');
+    });
+  }
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = global.document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    global.document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  /**
+   * Instagramストーリー — 画像を Web Share（モバイルで IG 選択可）または保存
+   */
+  async function shareToInstagramStory(courseName, time, gateName) {
+    const blob = await buildStoryImageBlob(courseName, time, gateName);
+    if (!blob) {
+      global.alert('ストーリー用画像の作成に失敗しました。');
+      return;
+    }
+    const file = new File([blob], 'osaka-koudou-lap.png', { type: 'image/png' });
+    const shareData = { files: [file], title: 'タイムアタック' };
+    if (global.navigator.share && global.navigator.canShare?.(shareData)) {
+      try {
+        await global.navigator.share(shareData);
+        return;
+      } catch (err) {
+        if (err?.name === 'AbortError') return;
+      }
+    }
+    downloadBlob(blob, 'osaka-koudou-lap.png');
+    if (isMobileOrStandalone()) {
+      global.alert(
+        '画像を保存しました。\nInstagramを開き、ストーリー作成で画像を選んで追加してください。'
+      );
+    } else {
+      global.alert(
+        '画像をダウンロードしました。\nスマホのInstagramアプリでストーリーに画像を追加してください。'
+      );
+    }
+  }
+
+  global.shareToInstagramStory = shareToInstagramStory;
+
   function newRecordId() {
     return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   }
@@ -373,10 +526,17 @@
     function shareRecordToX(id) {
       const entry = loadLog().find((e) => e.id === id);
       if (!entry) return;
-      const courseName = COURSE_GROUP_LABELS[entry.courseGroup] || entry.courseGroup || '—';
-      let gateName = entry.label || '—';
-      if (entry.testMode) gateName += ' (現地確認)';
-      shareToX(courseName, entry.time || '—', gateName);
+      const meta = entryShareMeta(entry);
+      shareToX(meta.courseName, meta.time, meta.gateName);
+    }
+
+    function shareRecordToInstagram(id) {
+      const entry = loadLog().find((e) => e.id === id);
+      if (!entry) return;
+      const meta = entryShareMeta(entry);
+      shareToInstagramStory(meta.courseName, meta.time, meta.gateName).catch(() => {
+        global.alert('共有できませんでした。');
+      });
     }
 
     function renderLogList() {
@@ -399,7 +559,8 @@
           `<div class="text-[10px] text-slate-500 truncate">${label}</div>` +
           `<div class="text-[9px] text-slate-600">${date}</div></div>` +
           `<div class="attack-record-actions">` +
-          `<button type="button" class="attack-record-share" data-share-id="${id}" aria-label="Xで共有">X共有</button>` +
+          `<button type="button" class="attack-record-share" data-share-id="${id}" aria-label="Xで共有">X</button>` +
+          `<button type="button" class="attack-record-share attack-record-share--ig" data-share-ig-id="${id}" aria-label="Instagramストーリーで共有">IG</button>` +
           `<button type="button" class="attack-record-del" data-delete-id="${id}" aria-label="この記録を削除">削除</button>` +
           `</div></article>`
         );
@@ -889,6 +1050,12 @@
           shareRecordToX(shareBtn.getAttribute('data-share-id'));
           return;
         }
+        const igBtn = ev.target.closest('[data-share-ig-id]');
+        if (igBtn) {
+          ev.preventDefault();
+          shareRecordToInstagram(igBtn.getAttribute('data-share-ig-id'));
+          return;
+        }
         const delBtn = ev.target.closest('[data-delete-id]');
         if (!delBtn) return;
         ev.preventDefault();
@@ -912,9 +1079,15 @@
       isAutoDirCourse: () => !testMode && isBidirectionalGroup(getCourseGroup()),
       stopGps,
       reloadLog: renderLogList,
-      shareRecordToX
+      shareRecordToX,
+      shareRecordToInstagram
     };
   }
 
-  global.TimeAttack = { init: initTimeAttack, formatTime, shareToX };
+  global.TimeAttack = {
+    init: initTimeAttack,
+    formatTime,
+    shareToX,
+    shareToInstagramStory
+  };
 })(typeof window !== 'undefined' ? window : globalThis);
