@@ -125,6 +125,7 @@
         goal: TEST_GATE_LINE
       }
     },
+    /** 信貴山：gateA=十三峠（南） gateB=鳴川・山上方面（北）。上り=南→北 */
     shigisan: {
       up: {
         name: '信貴山 · 十三峠（上り）',
@@ -149,16 +150,17 @@
         goal: roadCenter(HANNA_DOWN_F.lat, HANNA_DOWN_F.lng, HANNA_DOWN_ROAD_BEARING)
       }
     },
+    /** 猿山（府道43・箕面ドライブウェイ）：上り=北向き。gateA=箕面側（南） gateB=山荘方面（北） */
     saruyama: {
       up: {
         name: '箕面 · 猿山（上り）',
-        start: roadCenter(34.854785, 135.472299),
-        goal: roadCenter(34.847327, 135.475892)
+        start: roadCenter(34.847327, 135.475892),
+        goal: roadCenter(34.854785, 135.472299)
       },
       down: {
         name: '箕面 · 猿山（下り）',
-        start: roadCenter(34.847327, 135.475892),
-        goal: roadCenter(34.854785, 135.472299)
+        start: roadCenter(34.854785, 135.472299),
+        goal: roadCenter(34.847327, 135.475892)
       }
     },
     kanjo: {
