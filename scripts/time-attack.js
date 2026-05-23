@@ -120,7 +120,7 @@
   const storyBlobCache = new Map();
   const STORY_CACHE_MAX = 30;
   /** 画像レイアウト変更時に increment（古いキャッシュを無効化） */
-  const STORY_IMG_VER = 9;
+  const STORY_IMG_VER = 10;
   const STORY_FONT_LINK_ID = 'story-noto-sans-jp-css';
   /** Canvas は先頭フォントのみ使うため JetBrains を日本語に使わない */
   const FONT_JP =
@@ -201,7 +201,18 @@
   function launchInstagramAppNow() {
     if (!isMobileOrStandalone()) return;
     const url = IG_APP_SCHEMES[0];
-    global.location.href = url;
+    try {
+      global.location.assign(url);
+      return;
+    } catch (_) {}
+    try {
+      const a = global.document.createElement('a');
+      a.href = url;
+      a.style.display = 'none';
+      global.document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (_) {}
   }
 
   /** X 投稿画面へ（intent/tweet — モバイルでは X アプリが開く） */
