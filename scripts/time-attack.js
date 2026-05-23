@@ -122,7 +122,7 @@
 
   function cacheStoryBlobForEntry(entry) {
     const meta = entryShareMeta(entry);
-    buildStoryImageBlob(meta.courseName, meta.time, meta.gateName).then((blob) => {
+    buildStoryImageBlob(meta).then((blob) => {
       if (!blob) return;
       storyBlobCache.set(entry.id, blob);
       if (storyBlobCache.size > STORY_CACHE_MAX) {
@@ -193,11 +193,27 @@
 
   global.shareToX = shareToX;
 
+  function courseDirLabel(entry) {
+    if (entry.testMode) return 'テスト';
+    if (entry.courseDir === 'lap') return '周回';
+    if (entry.courseDir === 'down') return '下り';
+    if (entry.courseDir === 'up') return '上り';
+    return '';
+  }
+
   function entryShareMeta(entry) {
     const courseName = COURSE_GROUP_LABELS[entry.courseGroup] || entry.courseGroup || '—';
-    let gateName = entry.label || '—';
+    const routeLabel = (entry.label || '—').trim();
+    const dirLabel = courseDirLabel(entry);
+    let gateName = routeLabel;
     if (entry.testMode) gateName += ' (現地確認)';
-    return { courseName, time: entry.time || '—', gateName };
+    return {
+      courseName,
+      routeLabel,
+      dirLabel,
+      time: entry.time || '—',
+      gateName
+    };
   }
 
   function wrapLines(ctx, text, maxWidth) {
@@ -216,7 +232,18 @@
     return lines.length ? lines : ['—'];
   }
 
-  async function buildStoryImageBlob(courseName, time, gateName) {
+  function routeLabelShowsDir(routeLabel, dirLabel) {
+    if (!dirLabel || dirLabel === 'テスト' || dirLabel === '周回') return true;
+    if (dirLabel === '上り') return /上り/.test(routeLabel);
+    if (dirLabel === '下り') return /下り/.test(routeLabel);
+    return false;
+  }
+
+  async function buildStoryImageBlob(meta) {
+    const courseName = meta.courseName || '—';
+    const routeLabel = meta.routeLabel || meta.gateName || '—';
+    const dirLabel = meta.dirLabel || '';
+    const time = meta.time || '—';
     const W = 1080;
     const H = 1920;
     const canvas = document.createElement('canvas');
@@ -277,15 +304,30 @@
     const padX = 120;
     const maxW = W - padX * 2;
     ctx.textAlign = 'left';
-    ctx.fillStyle = '#cbd5e1';
-    ctx.font = '600 32px "JetBrains Mono", ui-monospace, monospace';
-    ctx.fillText(`▶ コース: ${courseName}`, padX, 720);
+    let courseY = 630;
+
+    ctx.fillStyle = '#00e5ff';
+    ctx.font = '700 24px "JetBrains Mono", ui-monospace, monospace';
+    ctx.fillText('COURSE / コース', padX, courseY);
+    courseY += 48;
+
+    ctx.fillStyle = '#f1f5f9';
+    ctx.font = '700 48px Orbitron, "JetBrains Mono", ui-monospace, monospace';
+    ctx.fillText(courseName, padX, courseY);
+    courseY += 56;
+
+    if (dirLabel && !routeLabelShowsDir(routeLabel, dirLabel)) {
+      ctx.fillStyle = '#00f0ff';
+      ctx.font = '600 30px "JetBrains Mono", ui-monospace, monospace';
+      ctx.fillText(`↕ ${dirLabel}`, padX, courseY);
+      courseY += 44;
+    }
 
     ctx.fillStyle = '#94a3b8';
     ctx.font = '500 28px "JetBrains Mono", ui-monospace, monospace';
-    const gateLines = wrapLines(ctx, `📍 ${gateName}`, maxW);
-    gateLines.forEach((ln, i) => {
-      ctx.fillText(ln, padX, 780 + i * 40);
+    const routeLines = wrapLines(ctx, routeLabel, maxW);
+    routeLines.forEach((ln, i) => {
+      ctx.fillText(ln, padX, courseY + i * 38);
     });
 
     ctx.textAlign = 'center';
@@ -345,8 +387,15 @@
     );
   }
 
-  async function shareToInstagramStory(courseName, time, gateName) {
-    const blob = await buildStoryImageBlob(courseName, time, gateName);
+  async function shareToInstagramStory(courseName, time, gateName, extra) {
+    const meta = {
+      courseName,
+      routeLabel: extra?.routeLabel || gateName,
+      dirLabel: extra?.dirLabel || '',
+      time,
+      gateName
+    };
+    const blob = await buildStoryImageBlob(meta);
     await saveImageAndOpenInstagram(blob, time);
   }
 
@@ -604,7 +653,7 @@
       }
 
       addGpsLog('IG: 画像を準備中…');
-      buildStoryImageBlob(meta.courseName, meta.time, meta.gateName)
+      buildStoryImageBlob(meta)
         .then((blob) => {
           if (!blob) {
             global.alert('ストーリー用画像の作成に失敗しました。');
