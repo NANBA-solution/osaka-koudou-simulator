@@ -116,7 +116,23 @@
     return /Android/i.test(navigator.userAgent || '');
   }
 
-  /** iOS: 画像をクリップボードへ（instagram-stories:// が参照） */
+  /** 記録保存時に先読み — タップ直後の Web Share でジェスチャーを維持 */
+  const storyBlobCache = new Map();
+  const STORY_CACHE_MAX = 30;
+
+  function cacheStoryBlobForEntry(entry) {
+    const meta = entryShareMeta(entry);
+    buildStoryImageBlob(meta.courseName, meta.time, meta.gateName).then((blob) => {
+      if (!blob) return;
+      storyBlobCache.set(entry.id, blob);
+      if (storyBlobCache.size > STORY_CACHE_MAX) {
+        const oldest = storyBlobCache.keys().next().value;
+        storyBlobCache.delete(oldest);
+      }
+    });
+  }
+
+  /** iOS: 標準クリップボード（Instagram が参照する場合あり） */
   async function copyImageToClipboard(blob) {
     if (!global.navigator.clipboard?.write || !global.ClipboardItem) return false;
     try {
@@ -129,9 +145,49 @@
     }
   }
 
-  /** X共有と同様 — 同一タブで Instagram ストーリー作成へ Handoff */
-  function handoffInstagramStoriesApp() {
-    global.location.href = 'instagram-stories://share';
+  const IG_APP_SCHEMES = [
+    'instagram-stories://share',
+    'instagram://story-camera',
+    'instagram://camera',
+    'instagram://app'
+  ];
+
+  /** ユーザータップ直後（同期）で Instagram アプリ起動を試行 */
+  function openInstagramSchemesSync() {
+    if (!isMobileOrStandalone()) return;
+    const url = IG_APP_SCHEMES[0];
+    try {
+      const a = global.document.createElement('a');
+      a.href = url;
+      a.style.display = 'none';
+      global.document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (_) {}
+    if (isIOS()) {
+      try {
+        const iframe = global.document.createElement('iframe');
+        iframe.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none';
+        iframe.src = url;
+        global.document.body.appendChild(iframe);
+        global.setTimeout(() => iframe.remove(), 2000);
+      } catch (_) {}
+    }
+    if (isAndroid()) {
+      try {
+        const a = global.document.createElement('a');
+        a.href = 'instagram-stories://share';
+        a.style.display = 'none';
+        global.document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } catch (_) {}
+    }
+  }
+
+  function openInstagramAfterClipboard() {
+    openInstagramSchemesSync();
+    global.setTimeout(openInstagramSchemesSync, 250);
   }
 
   /** X 投稿画面へ（intent/tweet — モバイルでは X アプリが開く） */
@@ -287,42 +343,22 @@
   }
 
   /**
-   * Instagramストーリー — モバイルは画像を渡して instagram-stories:// へ自動遷移（X共有と同様）
+   * Instagramストーリー — Web Share（画像付き）→ クリップボード＋アプリ起動の順で試行
+   * ※ Web から X のように完全自動投稿は不可（Meta 仕様）。共有シートの Instagram が最も確実
    */
-  async function shareToInstagramStory(courseName, time, gateName) {
-    const blob = await buildStoryImageBlob(courseName, time, gateName);
+  async function deliverInstagramStory(blob) {
     if (!blob) {
       global.alert('ストーリー用画像の作成に失敗しました。');
       return;
     }
     const file = new File([blob], 'osaka-koudou-lap.png', { type: 'image/png' });
-    const shareData = { files: [file], title: 'タイムアタック' };
+    const shareData = {
+      files: [file],
+      title: 'タイムアタック',
+      text: '大阪公道シミュレーター · GPSタイムアタック'
+    };
     const canShareFiles =
       !!global.navigator.share && !!global.navigator.canShare?.(shareData);
-
-    if (isMobileOrStandalone()) {
-      if (isAndroid() && canShareFiles) {
-        try {
-          await global.navigator.share(shareData);
-          return;
-        } catch (err) {
-          if (err?.name === 'AbortError') return;
-        }
-      }
-
-      const copied = await copyImageToClipboard(blob);
-      if (!copied && isIOS() && canShareFiles) {
-        try {
-          await global.navigator.share(shareData);
-          return;
-        } catch (err) {
-          if (err?.name === 'AbortError') return;
-        }
-      }
-
-      handoffInstagramStoriesApp();
-      return;
-    }
 
     if (canShareFiles) {
       try {
@@ -333,13 +369,25 @@
       }
     }
 
+    if (isMobileOrStandalone()) {
+      await copyImageToClipboard(blob);
+      openInstagramAfterClipboard();
+      return;
+    }
+
     downloadBlob(blob, 'osaka-koudou-lap.png');
     global.alert(
       '画像をダウンロードしました。\nスマホのInstagramアプリでストーリーに画像を追加してください。'
     );
   }
 
+  async function shareToInstagramStory(courseName, time, gateName) {
+    const blob = await buildStoryImageBlob(courseName, time, gateName);
+    await deliverInstagramStory(blob);
+  }
+
   global.shareToInstagramStory = shareToInstagramStory;
+  global.deliverInstagramStory = deliverInstagramStory;
 
   function newRecordId() {
     return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -582,9 +630,24 @@
       const entry = loadLog().find((e) => e.id === id);
       if (!entry) return;
       const meta = entryShareMeta(entry);
-      shareToInstagramStory(meta.courseName, meta.time, meta.gateName).catch(() => {
-        global.alert('共有できませんでした。');
-      });
+
+      if (isIOS() && isMobileOrStandalone()) {
+        openInstagramSchemesSync();
+      }
+
+      const cached = storyBlobCache.get(id);
+      const run = cached
+        ? Promise.resolve(cached)
+        : buildStoryImageBlob(meta.courseName, meta.time, meta.gateName).then((blob) => {
+            if (blob) storyBlobCache.set(id, blob);
+            return blob;
+          });
+
+      run
+        .then((blob) => deliverInstagramStory(blob))
+        .catch(() => {
+          global.alert('共有できませんでした。');
+        });
     }
 
     function renderLogList() {
@@ -608,7 +671,7 @@
           `<div class="text-[9px] text-slate-600">${date}</div></div>` +
           `<div class="attack-record-actions">` +
           `<button type="button" class="attack-record-share" data-share-id="${id}" aria-label="Xで共有">X</button>` +
-          `<button type="button" class="attack-record-share attack-record-share--ig" data-share-ig-id="${id}" aria-label="Instagramストーリーで共有">IG</button>` +
+          `<button type="button" class="attack-record-share attack-record-share--ig" data-share-ig-id="${id}" aria-label="Instagramストーリーで共有" title="共有シートでInstagram→ストーリーを選択">IG</button>` +
           `<button type="button" class="attack-record-del" data-delete-id="${id}" aria-label="この記録を削除">削除</button>` +
           `</div></article>`
         );
@@ -649,6 +712,7 @@
       renderLogList();
       addGpsLog(`記録保存 · ${entry.time}`);
       RecordChime.playFinish();
+      cacheStoryBlobForEntry(entry);
     }
 
     let syncToken = 0;
