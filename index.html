@@ -199,7 +199,7 @@
     #attackLogList { max-height: 10rem; overflow-y: auto; }
     .attack-record-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(9.5rem, auto);
+      grid-template-columns: minmax(0, 1fr) minmax(11rem, auto);
       gap: 0.35rem 0.4rem;
       align-items: start;
     }
@@ -213,19 +213,29 @@
     }
     .attack-record-share,
     .attack-record-del {
-      padding: 0.15rem 0.4rem; font-size: 9px; line-height: 1.2;
-      border-radius: 0.2rem; border: 1px solid #334155;
-      background: #0a0e14; cursor: pointer; white-space: nowrap;
+      border-radius: 0.2rem;
+      border: 1px solid #334155;
+      background: #0a0e14;
+      cursor: pointer;
+      white-space: nowrap;
       text-decoration: none;
-      display: inline-block;
       box-sizing: border-box;
+    }
+    .attack-record-action-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 2.05rem;
+      min-height: 2.05rem;
+      padding: 0.28rem;
+      line-height: 1;
+      font-size: 8px;
+      font-weight: 700;
     }
     .attack-record-share { color: #e2e8f0; border-color: #3f3f46; }
     .attack-record-share:hover { border-color: #00e5ff; color: #00e5ff; background: rgba(0,229,255,.08); }
-    .attack-record-share--brand {
-      padding: 0.28rem 0.38rem;
-      line-height: 0;
-      vertical-align: middle;
+    .attack-record-share--brand.attack-record-action-btn {
+      padding: 0.28rem;
     }
     .attack-record-share--brand .attack-share-icon {
       display: block;
@@ -757,7 +767,7 @@
   <script src="scripts/red-path-browser.js"></script>
   <script src="scripts/road-gate.js"></script>
   <script src="scripts/attack-gates.js"></script>
-  <script src="scripts/time-attack.js?v=41"></script>
+  <script src="scripts/time-attack.js?v=42"></script>
   <script>
   (function () {
     'use strict';
@@ -4023,7 +4033,7 @@
         ctx.font = '600 28px "Hiragino Sans", "Yu Gothic", sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText('テストコース（現地確認）', x + w / 2, y + h / 2);
-        drawStoryMapHudLabel(ctx, x, y, w);
+        if (opts?.showHudLabel !== false) drawStoryMapHudLabel(ctx, x, y, w);
         ctx.restore();
         return true;
       }
@@ -4143,7 +4153,7 @@
         ctx.restore();
         return false;
       }
-      drawStoryMapHudLabel(ctx, x, y, w);
+      if (opts?.showHudLabel !== false) drawStoryMapHudLabel(ctx, x, y, w);
       ctx.restore();
       return true;
       } catch (err) {
@@ -5594,11 +5604,11 @@
     // PWA service worker (inline blob)
     if ('serviceWorker' in navigator) {
       const swCode = `
-        const CACHE='setup-lab-v41';
+        const CACHE='setup-lab-v42';
         const PRECACHE=[
           './','./index.html',
           './scripts/red-path-browser.js','./scripts/road-gate.js','./scripts/attack-gates.js',
-          './scripts/time-attack.js','./scripts/time-attack.js?v=41',
+          './scripts/time-attack.js','./scripts/time-attack.js?v=42',
           './assets/shigisan-ref.png','./assets/minoo-ref.png','./assets/hanna-ref.png',
           './assets/hanna-up-map.png','./assets/kanjo-ref.png'
         ];

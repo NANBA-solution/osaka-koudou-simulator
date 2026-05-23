@@ -135,7 +135,7 @@
   const storyBlobCache = new Map();
   const STORY_CACHE_MAX = 30;
   /** 画像レイアウト変更時に increment（古いキャッシュを無効化） */
-  const STORY_IMG_VER = 11;
+  const STORY_IMG_VER = 12;
   const STORY_FONT_LINK_ID = 'story-noto-sans-jp-css';
   /** Canvas は先頭フォントのみ使うため JetBrains を日本語に使わない */
   const FONT_JP =
@@ -466,26 +466,26 @@
     return sub;
   }
 
-  function drawStoryCourseCard(ctx, W, courseName, routeLabel, dirLabel) {
+  function drawStoryCourseCard(ctx, W, courseName, routeLabel, dirLabel, startY) {
     const cardX = 56;
     const cardW = W - cardX * 2;
-    const pad = 36;
+    const pad = 32;
     const innerW = cardW - pad * 2;
     const cx = cardX + cardW / 2;
     const subtitle = storyCourseSubtitle(courseName, routeLabel, dirLabel);
+    const panelY = startY || 248;
 
-    ctx.font = `700 52px ${FONT_JP}`;
+    ctx.font = `700 46px ${FONT_JP}`;
     const titleLines = wrapLines(ctx, courseName, innerW).slice(0, 2);
     let subLines = [];
     if (subtitle) {
-      ctx.font = `400 26px ${FONT_JP}`;
+      ctx.font = `400 24px ${FONT_JP}`;
       subLines = wrapLines(ctx, subtitle, innerW).slice(0, 2);
     }
 
-    let contentH = 28 + titleLines.length * 56;
-    if (subLines.length) contentH += 14 + subLines.length * 34;
+    let contentH = 24 + titleLines.length * 50;
+    if (subLines.length) contentH += 12 + subLines.length * 30;
     const panelH = contentH + pad * 2;
-    const panelY = 266;
 
     ctx.save();
     storyRoundRect(ctx, cardX, panelY, cardW, panelH, 12);
@@ -498,26 +498,26 @@
     ctx.fillRect(cardX + 32, panelY, cardW - 64, 2);
     ctx.restore();
 
-    let y = panelY + pad + 18;
+    let y = panelY + pad + 16;
     ctx.textAlign = 'center';
     ctx.fillStyle = 'rgba(0, 229, 255, 0.65)';
-    ctx.font = `500 18px ${FONT_JP}`;
+    ctx.font = `500 17px ${FONT_JP}`;
     ctx.fillText('コース', cx, y);
-    y += 34;
+    y += 30;
 
     ctx.fillStyle = '#f1f5f9';
-    ctx.font = `700 52px ${FONT_JP}`;
+    ctx.font = `700 46px ${FONT_JP}`;
     titleLines.forEach((ln, i) => {
-      ctx.fillText(ln, cx, y + i * 56);
+      ctx.fillText(ln, cx, y + i * 50);
     });
-    y += titleLines.length * 56;
+    y += titleLines.length * 50;
 
     if (subLines.length) {
-      y += 14;
-      ctx.fillStyle = '#64748b';
-      ctx.font = `400 26px ${FONT_JP}`;
+      y += 12;
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = `400 24px ${FONT_JP}`;
       subLines.forEach((ln, i) => {
-        ctx.fillText(ln, cx, y + i * 34);
+        ctx.fillText(ln, cx, y + i * 30);
       });
     }
 
@@ -525,38 +525,35 @@
   }
 
   function drawStoryHeader(ctx, W) {
-    ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(100, 116, 139, 0.95)';
-    ctx.font = `600 24px ${FONT_LATIN}`;
-    ctx.fillText('OSAKA KOUDO SIMULATOR', W / 2, 188);
-    const subW = 280;
-    const subX = (W - subW) / 2;
-    ctx.fillStyle = 'rgba(248, 113, 113, 0.25)';
-    storyRoundRect(ctx, subX, 202, subW, 44, 8);
-    ctx.fill();
-    ctx.fillStyle = '#fca5a5';
-    ctx.font = `700 28px ${FONT_LATIN}`;
-    ctx.fillText('GPS TIME ATTACK', W / 2, 232);
-    ctx.fillStyle = 'rgba(0, 240, 255, 0.5)';
-    ctx.fillRect(W / 2 - 120, 252, 240, 2);
-  }
-
-  function drawTimeHud(ctx, W, timeY, time) {
-    const hudW = 920;
-    const hudH = 168;
-    const hudX = (W - hudW) / 2;
-    const hudY = timeY - 118;
-    drawGlassPanel(ctx, hudX, hudY, hudW, hudH, 16);
+    const y0 = 118;
     ctx.textAlign = 'center';
     ctx.fillStyle = '#64748b';
-    ctx.font = `600 26px ${FONT_LATIN}`;
-    ctx.fillText('LAP TIME', W / 2, hudY + 38);
+    ctx.font = `600 22px ${FONT_LATIN}`;
+    ctx.fillText('OSAKA KOUDO SIMULATOR', W / 2, y0);
+    ctx.fillStyle = '#fca5a5';
+    ctx.font = `700 26px ${FONT_LATIN}`;
+    ctx.fillText('GPS TIME ATTACK', W / 2, y0 + 44);
+    ctx.fillStyle = 'rgba(0, 240, 255, 0.4)';
+    ctx.fillRect(W / 2 - 96, y0 + 62, 192, 2);
+    return y0 + 72;
+  }
+
+  function drawTimeHud(ctx, W, topY, time) {
+    const hudW = 880;
+    const hudH = 148;
+    const hudX = (W - hudW) / 2;
+    drawGlassPanel(ctx, hudX, topY, hudW, hudH, 14);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#64748b';
+    ctx.font = `600 24px ${FONT_LATIN}`;
+    ctx.fillText('LAP TIME', W / 2, topY + 34);
     ctx.fillStyle = '#00f0ff';
-    ctx.font = `900 96px ${FONT_TIME}`;
-    ctx.shadowColor = 'rgba(0, 240, 255, 0.65)';
-    ctx.shadowBlur = 32;
-    ctx.fillText(time, W / 2, hudY + 128);
+    ctx.font = `900 88px ${FONT_TIME}`;
+    ctx.shadowColor = 'rgba(0, 240, 255, 0.55)';
+    ctx.shadowBlur = 24;
+    ctx.fillText(time, W / 2, topY + 116);
     ctx.shadowBlur = 0;
+    return topY + hudH;
   }
 
   function dataUrlToPngBlob(dataUrl) {
@@ -604,23 +601,38 @@
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
-    drawStoryBackground(ctx, W, H);
-    drawStoryHeader(ctx, W);
-
+    const gap = 28;
     const cardX = 56;
     const cardW = W - cardX * 2;
-    const panelBottom = drawStoryCourseCard(ctx, W, courseName, routeLabel, dirLabel);
+
+    drawStoryBackground(ctx, W, H);
+    const headerBottom = drawStoryHeader(ctx, W);
+    const courseTop = headerBottom + 20;
+    const panelBottom = drawStoryCourseCard(ctx, W, courseName, routeLabel, dirLabel, courseTop);
+
     const mapX = cardX;
     const mapW = cardW;
-    const mapTop = panelBottom + 20;
-    const mapBottom = 1000;
-    const mapH = Math.max(200, Math.min(520, mapBottom - mapTop));
+    const mapLabelY = panelBottom + gap;
+    const mapTop = mapLabelY + 22;
+    const timeBlockH = 148;
+    const footerH = 110;
+    const mapH = Math.max(
+      360,
+      Math.min(460, H - mapTop - timeBlockH - footerH - gap * 3)
+    );
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(0, 240, 255, 0.55)';
+    ctx.font = `600 17px ${FONT_LATIN}`;
+    ctx.fillText('ROUTE MAP', mapX + 6, mapLabelY);
+
     let drewMap = false;
     try {
       drewMap = !!global.renderStoryCourseMap?.(ctx, mapX, mapTop, mapW, mapH, {
         courseGroup: meta.courseGroup,
         courseDir: meta.courseDir,
-        testMode: meta.testMode
+        testMode: meta.testMode,
+        showHudLabel: false
       });
     } catch (mapErr) {
       console.warn('renderStoryCourseMap failed', mapErr);
@@ -628,27 +640,24 @@
     if (!drewMap) {
       drawGlassPanel(ctx, mapX, mapTop, mapW, mapH, 14);
       ctx.fillStyle = '#64748b';
-      ctx.font = `500 26px ${FONT_JP}`;
+      ctx.font = `500 24px ${FONT_JP}`;
       ctx.textAlign = 'center';
-      ctx.fillText('ROUTE MAP', mapX + mapW / 2, mapTop + mapH / 2 - 16);
-      ctx.fillText(routeLabel, mapX + mapW / 2, mapTop + mapH / 2 + 28);
+      ctx.fillText(routeLabel, mapX + mapW / 2, mapTop + mapH / 2);
       ctx.textAlign = 'left';
     }
 
-    const timeY = drewMap ? mapTop + mapH + 100 : 1180;
-    drawTimeHud(ctx, W, timeY, time);
+    const timeTop = mapTop + mapH + gap;
+    const timeBottom = drawTimeHud(ctx, W, timeTop, time);
 
     ctx.textAlign = 'center';
+    const footerY = Math.min(timeBottom + gap, H - footerH);
     ctx.fillStyle = 'rgba(71, 85, 105, 0.95)';
-    ctx.font = `500 22px ${FONT_JP}`;
-    ctx.fillText('#大阪公道シミュレーター  #タイムアタック', W / 2, H - 200);
+    ctx.font = `500 21px ${FONT_JP}`;
+    ctx.fillText('#大阪公道シミュレーター  #タイムアタック', W / 2, footerY + 28);
     ctx.fillStyle = '#00e5ff';
-    ctx.font = `600 24px ${FONT_LATIN}`;
-    ctx.shadowColor = 'rgba(0, 240, 255, 0.4)';
-    ctx.shadowBlur = 8;
+    ctx.font = `600 22px ${FONT_LATIN}`;
     const host = SHARE_APP_URL.replace(/^https?:\/\//, '');
-    ctx.fillText(host, W / 2, H - 158);
-    ctx.shadowBlur = 0;
+    ctx.fillText(host, W / 2, footerY + 62);
 
     return await canvasToPngBlob(canvas);
     } catch (err) {
@@ -1303,13 +1312,13 @@
           `<div class="text-[10px] text-slate-500 truncate">${label}</div>` +
           `<div class="text-[9px] text-slate-600">${date}</div></div>` +
           `<div class="attack-record-actions" role="group" aria-label="記録の共有">` +
-          `<button type="button" class="attack-record-share attack-record-share--save" data-save-img-id="${id}" ` +
+          `<button type="button" class="attack-record-share attack-record-share--save attack-record-action-btn" data-save-img-id="${id}" ` +
           `aria-label="ストーリー用画像をプレビュー" title="画像を表示してから保存">画像</button>` +
-          `<a href="${igHref}" class="attack-record-share attack-record-share--ig attack-record-share--brand" data-share-ig-id="${id}" ` +
+          `<a href="${igHref}" class="attack-record-share attack-record-share--ig attack-record-share--brand attack-record-action-btn" data-share-ig-id="${id}" ` +
           `aria-label="Instagramを開く（画像は自動保存）" title="画像を自動保存してInstagramを起動">${SHARE_ICON_INSTAGRAM}</a>` +
-          `<button type="button" class="attack-record-share attack-record-share--x attack-record-share--brand" data-share-id="${id}" ` +
+          `<button type="button" class="attack-record-share attack-record-share--x attack-record-share--brand attack-record-action-btn" data-share-id="${id}" ` +
           `aria-label="Xで共有" title="Xで共有">${SHARE_ICON_X}</button>` +
-          `<button type="button" class="attack-record-del" data-delete-id="${id}" aria-label="この記録を削除">削除</button>` +
+          `<button type="button" class="attack-record-del attack-record-action-btn" data-delete-id="${id}" aria-label="この記録を削除">削除</button>` +
           `</div></article>`
         );
       }).join('');
