@@ -494,6 +494,69 @@
       .equip-ad-banner__badge { margin-left: auto; }
       .equip-ad-banner__link { text-align: left; }
     }
+
+    /* モバイル横画面：走行中のタイムだけ全画面（GPS計測は継続） */
+    @media (orientation: landscape) and (max-height: 520px) {
+      #app > header.app-shell,
+      #app > .equip-ad-banner {
+        display: none !important;
+      }
+      #app > .app-grid {
+        overflow: hidden;
+        display: block;
+      }
+      #app > .app-grid > main,
+      #app > .app-grid > aside > details,
+      #app > .app-grid > aside > .attack-panel > *:not(.attack-timer-stage) {
+        display: none !important;
+      }
+      #app > .app-grid > aside {
+        display: block;
+        width: 100%;
+        max-width: none;
+      }
+      #app > .app-grid > aside > .attack-panel {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        margin: 0;
+        padding: 0;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        background: #05080e;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .attack-timer-stage {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        background: radial-gradient(ellipse at 50% 40%, rgba(0, 240, 255, 0.08) 0%, transparent 55%);
+        border: none !important;
+      }
+      .attack-timer-stage > p {
+        font-size: 0.65rem;
+        letter-spacing: 0.35em;
+        margin-bottom: 0.35rem;
+        color: #64748b;
+      }
+      .attack-timer-stage .attack-timer {
+        font-size: clamp(3.5rem, 28vh, 7.5rem);
+        line-height: 1;
+      }
+      .attack-timer-stage .attack-lap-actions {
+        display: none !important;
+      }
+      .story-image-modal {
+        z-index: 10000;
+      }
+    }
   </style>
 </head>
 <body class="text-slate-300 antialiased">
@@ -550,7 +613,7 @@
             ※ 計測するコースを上で指定してから GPS を ON にしてください。選択中コースのゲートだけが有効です。計測中は画面をオフにせず、画面ロックやバックグラウンドではタイムがずれる場合があります。
           </p>
           <p id="attackCoords" class="text-[10px] text-slate-600 font-mono tabular-nums">—</p>
-          <div class="bg-black/50 border border-motec-border rounded p-3 text-center">
+          <div class="attack-timer-stage bg-black/50 border border-motec-border rounded p-3 text-center">
             <p class="text-[9px] text-slate-600 tracking-widest uppercase mb-1">Current Lap</p>
             <div id="attackTimerPulse">
               <div class="speed-indicator">
