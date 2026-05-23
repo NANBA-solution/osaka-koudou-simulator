@@ -186,16 +186,78 @@
     .attack-lap-btn--stop:hover:not(:disabled) { border-color: #f87171; color: #fca5a5; }
     .attack-lap-btn--reset:hover:not(:disabled) { border-color: #00e5ff; color: #00e5ff; }
     #attackGpsLog { max-height: 4.5rem; overflow-y: auto; }
+    .attack-gps-control {
+      padding: 0.55rem 0.65rem;
+      border-radius: 0.35rem;
+      border: 1px solid #1e293b;
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.55) 0%, rgba(8, 12, 18, 0.9) 100%);
+    }
     .gps-power {
-      display: inline-flex; align-items: center; gap: 0.35rem;
-      padding: 0.2rem 0.55rem; font-size: 10px; font-weight: 800;
-      letter-spacing: 0.12em; border-radius: 0.25rem; border: 1px solid;
+      display: inline-flex; align-items: center; gap: 0.45rem;
+      font-size: 11px; font-weight: 800; letter-spacing: 0.06em;
     }
-    .gps-power::before {
-      content: ''; width: 0.4rem; height: 0.4rem; border-radius: 9999px; background: currentColor;
+    .gps-power__dot {
+      width: 0.55rem; height: 0.55rem; border-radius: 9999px; flex-shrink: 0;
+      background: #475569; box-shadow: 0 0 0 2px rgba(71, 85, 105, 0.35);
     }
-    .gps-power-off { color: #64748b; border-color: #334155; background: #0a0e14; }
-    .gps-power-on { color: #34d399; border-color: #059669; background: rgba(5,150,105,.12); }
+    .gps-power-off { color: #94a3b8; }
+    .gps-power-off .gps-power__dot { background: #64748b; }
+    .gps-power-on { color: #6ee7b7; }
+    .gps-power-on .gps-power__dot {
+      background: #34d399;
+      box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.35), 0 0 10px rgba(52, 211, 153, 0.65);
+      animation: gps-pulse-dot 1.4s ease-in-out infinite;
+    }
+    @keyframes gps-pulse-dot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.15); opacity: 0.85; }
+    }
+    .attack-gps-toggle {
+      display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+      width: 100%; margin-top: 0.45rem;
+      padding: 0.6rem 0.75rem;
+      font-size: 12px; font-weight: 800; letter-spacing: 0.04em;
+      border-radius: 0.3rem; border: 1px solid;
+      transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+    }
+    .attack-gps-toggle--off {
+      color: #fecaca; border-color: #b91c1c; background: rgba(127, 29, 29, 0.35);
+      box-shadow: 0 0 12px rgba(239, 68, 68, 0.12);
+    }
+    .attack-gps-toggle--off:hover { background: rgba(127, 29, 29, 0.55); }
+    .attack-gps-toggle--on {
+      color: #fef3c7; border-color: #b45309; background: rgba(120, 53, 15, 0.45);
+      box-shadow: 0 0 14px rgba(251, 191, 36, 0.15);
+    }
+    .attack-gps-toggle--on:hover { background: rgba(120, 53, 15, 0.65); }
+    .attack-gps-hud {
+      display: none;
+      position: absolute;
+      top: max(0.55rem, env(safe-area-inset-top));
+      left: max(0.75rem, env(safe-area-inset-left));
+      z-index: 2;
+      align-items: center; gap: 0.4rem;
+      padding: 0.35rem 0.65rem;
+      font-size: 11px; font-weight: 800; letter-spacing: 0.08em;
+      border-radius: 9999px; border: 1px solid #334155;
+      background: rgba(8, 12, 18, 0.88);
+      color: #94a3b8;
+      pointer-events: none;
+    }
+    .attack-gps-hud__dot {
+      width: 0.45rem; height: 0.45rem; border-radius: 9999px;
+      background: #64748b; flex-shrink: 0;
+    }
+    .attack-gps-hud--on {
+      color: #6ee7b7; border-color: #059669;
+      background: rgba(5, 150, 105, 0.2);
+      box-shadow: 0 0 16px rgba(52, 211, 153, 0.2);
+    }
+    .attack-gps-hud--on .attack-gps-hud__dot {
+      background: #34d399;
+      box-shadow: 0 0 8px rgba(52, 211, 153, 0.75);
+      animation: gps-pulse-dot 1.4s ease-in-out infinite;
+    }
     #attackLogList { max-height: 10rem; overflow-y: auto; }
     .attack-record-row {
       display: grid;
@@ -530,6 +592,7 @@
         justify-content: center;
       }
       .attack-timer-stage {
+        position: relative;
         width: 100%;
         height: 100%;
         display: flex;
@@ -539,6 +602,9 @@
         padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
         background: radial-gradient(ellipse at 50% 40%, rgba(0, 240, 255, 0.08) 0%, transparent 55%);
         border: none !important;
+      }
+      .attack-gps-hud {
+        display: inline-flex;
       }
       .attack-timer-stage > p {
         font-size: 0.65rem;
@@ -592,14 +658,20 @@
       <!-- Settings -->
       <aside class="lg:col-span-3 space-y-3 min-w-0 w-full">
         <section class="attack-panel cyber-panel rounded-lg p-4 space-y-3" aria-labelledby="attackHeading">
-          <div class="flex items-start justify-between gap-2 border-b border-motec-border pb-2">
+          <div class="border-b border-motec-border pb-2 space-y-2">
             <div>
               <p class="text-[9px] text-slate-600 tracking-[.2em] uppercase">Vector Crossing Lap Timer</p>
               <h2 id="attackHeading" class="text-sm font-bold text-red-400 tracking-wide">🏁 GPSタイムアタック</h2>
             </div>
-            <div class="flex items-center gap-2 shrink-0">
-              <span id="attackGpsPower" class="gps-power gps-power-off" aria-live="polite">GPS OFF</span>
-              <button type="button" id="attackToggle" class="px-3 py-1.5 text-[11px] font-bold rounded border border-red-800 text-red-300 bg-red-950/40 hover:bg-red-950/70 transition-colors" aria-label="GPSをオンにする">ON</button>
+            <div class="attack-gps-control" id="attackGpsControl">
+              <div class="flex items-center justify-between gap-2">
+                <span id="attackGpsPower" class="gps-power gps-power-off" aria-live="polite">
+                  <span class="gps-power__dot" aria-hidden="true"></span>
+                  <span class="gps-power__text">GPS停止中</span>
+                </span>
+                <span class="text-[9px] text-slate-600 shrink-0">コース選択 → 開始</span>
+              </div>
+              <button type="button" id="attackToggle" class="attack-gps-toggle attack-gps-toggle--off" aria-label="GPS計測を開始">GPS計測を開始</button>
             </div>
           </div>
           <div class="space-y-2">
@@ -614,6 +686,10 @@
           </p>
           <p id="attackCoords" class="text-[10px] text-slate-600 font-mono tabular-nums">—</p>
           <div class="attack-timer-stage bg-black/50 border border-motec-border rounded p-3 text-center">
+            <div id="attackGpsHud" class="attack-gps-hud attack-gps-hud--off" aria-live="polite">
+              <span class="attack-gps-hud__dot" aria-hidden="true"></span>
+              <span id="attackGpsHudLabel">GPS停止中</span>
+            </div>
             <p class="text-[9px] text-slate-600 tracking-widest uppercase mb-1">Current Lap</p>
             <div id="attackTimerPulse">
               <div class="speed-indicator">
@@ -828,7 +904,7 @@
   <script src="scripts/red-path-browser.js"></script>
   <script src="scripts/road-gate.js"></script>
   <script src="scripts/attack-gates.js"></script>
-  <script src="scripts/time-attack.js?v=50"></script>
+  <script src="scripts/time-attack.js?v=51"></script>
   <script>
   (function () {
     'use strict';
@@ -5612,12 +5688,6 @@
       const btn = e.target.closest('[data-group]');
       if (btn?.dataset.group) selectAttackCourse(btn.dataset.group);
     });
-    els.attackViewTabs?.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-attack-view]');
-      if (!btn) return;
-      applyAttackTimerFocus(btn.dataset.attackView === 'timer');
-    });
-    els.attackTimerFocusExit?.addEventListener('click', () => applyAttackTimerFocus(false));
     els.courseDirToggle?.addEventListener('click', () => toggleCourseDirection());
     els.attackDirToggle?.addEventListener('click', () => {
       if (timeAttack?.isAutoDirCourse?.()) return;
@@ -5695,6 +5765,8 @@
         elements: {
           toggleBtn: $('attackToggle'),
           gpsPower: $('attackGpsPower'),
+          gpsHud: $('attackGpsHud'),
+          gpsHudLabel: $('attackGpsHudLabel'),
           status: $('attackStatus'),
           gateNote: $('attackGateNote'),
           coords: $('attackCoords'),
@@ -5711,7 +5783,6 @@
     }
 
     populateSelects();
-    applyAttackTimerFocus(false);
     loadLocal();
     setMapView(state.mapView);
     loadRefMaps();

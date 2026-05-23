@@ -1229,24 +1229,29 @@
       errorUnset: 'このコースの計測地点が未設定です'
     };
 
+    const GPS_LABEL = { on: 'GPS計測中', off: 'GPS停止中' };
+    const GPS_TOGGLE = { on: 'GPS計測を停止', off: 'GPS計測を開始' };
+
     function setGpsPower(on) {
       if (els.timerPulse) {
         els.timerPulse.classList.toggle('measuring-pulse', on);
       }
       if (els.gpsPower) {
-        els.gpsPower.textContent = on ? 'GPS ON' : 'GPS OFF';
+        const textEl = els.gpsPower.querySelector('.gps-power__text');
+        if (textEl) textEl.textContent = on ? GPS_LABEL.on : GPS_LABEL.off;
         els.gpsPower.className = 'gps-power ' + (on ? 'gps-power-on' : 'gps-power-off');
       }
+      if (els.gpsHud) {
+        els.gpsHud.className = 'attack-gps-hud ' + (on ? 'attack-gps-hud--on' : 'attack-gps-hud--off');
+      }
+      if (els.gpsHudLabel) {
+        els.gpsHudLabel.textContent = on ? GPS_LABEL.on : GPS_LABEL.off;
+      }
       if (els.toggleBtn) {
-        els.toggleBtn.textContent = on ? 'OFF' : 'ON';
-        els.toggleBtn.setAttribute('aria-label', on ? 'GPSをオフにする' : 'GPSをオンにする');
-        if (on) {
-          els.toggleBtn.classList.add('border-motec-warn', 'text-motec-warn');
-          els.toggleBtn.classList.remove('border-red-800', 'text-red-300');
-        } else {
-          els.toggleBtn.classList.remove('border-motec-warn', 'text-motec-warn');
-          els.toggleBtn.classList.add('border-red-800', 'text-red-300');
-        }
+        els.toggleBtn.textContent = on ? GPS_TOGGLE.on : GPS_TOGGLE.off;
+        els.toggleBtn.setAttribute('aria-label', on ? 'GPS計測を停止する' : 'GPS計測を開始する');
+        els.toggleBtn.className =
+          'attack-gps-toggle ' + (on ? 'attack-gps-toggle--on' : 'attack-gps-toggle--off');
       }
     }
 
@@ -1771,7 +1776,7 @@
         }
       }
 
-      if (lastPosition && !lapHold) {
+      if (lastPosition) {
         if (currentConfig.lapMode && currentConfig.start?.pA) {
           const needsDepart = lapNeedsDepartArming(currentConfig, testMode);
           if (isRacing && needsDepart && !goalArmed && startGateMid) {
