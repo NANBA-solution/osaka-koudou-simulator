@@ -152,37 +152,13 @@
     'instagram://app'
   ];
 
-  /** ユーザータップ直後（同期）で Instagram アプリ起動を試行 */
-  function openInstagramSchemesSync() {
+  /**
+   * X共有と同じ — location.href で Handoff（タップ直後の同期呼び出しが必須）
+   */
+  function launchInstagramAppNow() {
     if (!isMobileOrStandalone()) return;
     const url = IG_APP_SCHEMES[0];
-    try {
-      const a = global.document.createElement('a');
-      a.href = url;
-      a.style.display = 'none';
-      global.document.body.appendChild(a);
-      a.click();
-      a.remove();
-    } catch (_) {}
-    if (isIOS()) {
-      try {
-        const iframe = global.document.createElement('iframe');
-        iframe.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none';
-        iframe.src = url;
-        global.document.body.appendChild(iframe);
-        global.setTimeout(() => iframe.remove(), 2000);
-      } catch (_) {}
-    }
-    if (isAndroid()) {
-      try {
-        const a = global.document.createElement('a');
-        a.href = 'instagram-stories://share';
-        a.style.display = 'none';
-        global.document.body.appendChild(a);
-        a.click();
-        a.remove();
-      } catch (_) {}
-    }
+    global.location.href = url;
   }
 
   /** X 投稿画面へ（intent/tweet — モバイルでは X アプリが開く） */
@@ -342,6 +318,13 @@
     global.setTimeout(() => URL.revokeObjectURL(url), 2000);
   }
 
+  /** 保存と Instagram 起動を同一タップ内で同期実行（await しない） */
+  function saveAndLaunchInstagramSync(blob, timeLabel) {
+    downloadBlob(blob, storyImageFilename(timeLabel));
+    launchInstagramAppNow();
+    copyImageToClipboard(blob);
+  }
+
   /**
    * IGタップ — 画像を端末に保存してから Instagram アプリを起動
    */
@@ -351,18 +334,12 @@
       return;
     }
 
-    const filename = storyImageFilename(timeLabel);
-    downloadBlob(blob, filename);
-    await copyImageToClipboard(blob);
-
     if (isMobileOrStandalone()) {
-      global.setTimeout(() => {
-        openInstagramSchemesSync();
-        global.setTimeout(openInstagramSchemesSync, 450);
-      }, 200);
+      saveAndLaunchInstagramSync(blob, timeLabel);
       return;
     }
 
+    downloadBlob(blob, storyImageFilename(timeLabel));
     global.alert(
       '画像をダウンロードしました。\nスマホのInstagramアプリでストーリーに画像を追加してください。'
     );
@@ -618,18 +595,23 @@
       const entry = loadLog().find((e) => e.id === id);
       if (!entry) return;
       const meta = entryShareMeta(entry);
-
       const cached = storyBlobCache.get(id);
-      const run = cached
-        ? Promise.resolve(cached)
-        : buildStoryImageBlob(meta.courseName, meta.time, meta.gateName).then((blob) => {
-            if (blob) storyBlobCache.set(id, blob);
-            return blob;
-          });
 
-      run
-        .then((blob) => saveImageAndOpenInstagram(blob, meta.time))
-        .then(() => {
+      if (cached) {
+        saveAndLaunchInstagramSync(cached, meta.time);
+        addGpsLog('IG: 画像を保存 → Instagram を起動');
+        return;
+      }
+
+      addGpsLog('IG: 画像を準備中…');
+      buildStoryImageBlob(meta.courseName, meta.time, meta.gateName)
+        .then((blob) => {
+          if (!blob) {
+            global.alert('ストーリー用画像の作成に失敗しました。');
+            return;
+          }
+          storyBlobCache.set(id, blob);
+          saveAndLaunchInstagramSync(blob, meta.time);
           addGpsLog('IG: 画像を保存 → Instagram を起動');
         })
         .catch(() => {
@@ -663,6 +645,9 @@
           `</div></article>`
         );
       }).join('');
+      entries.slice(0, 20).forEach((e) => {
+        if (!storyBlobCache.has(e.id)) cacheStoryBlobForEntry(e);
+      });
     }
 
     function deleteRecord(id) {
