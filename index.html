@@ -3559,14 +3559,6 @@
 
     function renderDirToggle(btn, groupId, dir, opts = {}) {
       if (!btn) return;
-      const testActive = opts.testActive;
-      if (testActive) {
-        btn.disabled = true;
-        btn.textContent = 'テストコース';
-        btn.classList.remove('active-up', 'active-down');
-        btn.title = 'テストゲートは往復1ライン';
-        return;
-      }
       if (opts.autoDir) {
         btn.disabled = true;
         btn.textContent = '↔ 方向自動';
@@ -3591,19 +3583,14 @@
     }
 
     function renderAttackCourseUI() {
-      const testActive = !!timeAttack?.isTestMode?.();
       if (els.attackCourseTabs) {
-        const courseBtns = COURSE_GROUPS.map((g) => {
-          const active = !testActive && g.id === state.courseGroup;
+        els.attackCourseTabs.innerHTML = COURSE_GROUPS.map((g) => {
+          const active = g.id === state.courseGroup;
           const cls = active ? 'course-tab active' : 'course-tab';
           return `<button type="button" class="${cls}" data-group="${g.id}" role="tab">${g.label}</button>`;
         }).join('');
-        const testCls = testActive ? 'course-tab active' : 'course-tab';
-        const testBtn = `<button type="button" class="${testCls}" data-group="test" role="tab">テスト</button>`;
-        els.attackCourseTabs.innerHTML = courseBtns + testBtn;
       }
       renderDirToggle(els.attackDirToggle, state.courseGroup, state.courseDir, {
-        testActive,
         autoDir: !!timeAttack?.isAutoDirCourse?.()
       });
     }
@@ -3618,9 +3605,6 @@
     }
 
     function attackGateGroupDir() {
-      if (timeAttack?.isTestMode?.()) {
-        return { group: 'test', dir: 'lap' };
-      }
       return { group: state.courseGroup, dir: state.courseDir };
     }
 
@@ -3648,26 +3632,18 @@
     function renderCourseUI() {
       syncCourseGroupState();
       if (els.courseGroupTabs) {
-        const testActive = !!timeAttack?.isTestMode?.();
         els.courseGroupTabs.innerHTML = COURSE_GROUPS.map((g) => {
-          const active = !testActive && g.id === state.courseGroup ? ' course-tab active' : ' course-tab';
+          const active = g.id === state.courseGroup ? ' course-tab active' : ' course-tab';
           return `<button type="button" class="${active.trim()}" data-group="${g.id}" role="tab">${g.label}</button>`;
         }).join('');
       }
-      renderDirToggle(els.courseDirToggle, state.courseGroup, state.courseDir, {
-        testActive: timeAttack?.isTestMode?.()
-      });
+      renderDirToggle(els.courseDirToggle, state.courseGroup, state.courseDir);
       renderAttackCourseUI();
       renderCourseGateCoords();
     }
 
     function selectAttackCourse(groupId) {
       if (timeAttack?.isRacing?.()) return;
-      if (groupId === 'test') {
-        timeAttack?.setTestMode?.(true);
-        renderCourseUI();
-        return;
-      }
       timeAttack?.setTestMode?.(false);
       setCourseGroup(groupId);
     }
@@ -5418,8 +5394,7 @@
         mapView: state.mapView,
         partsOpen: !!els.partsSection?.open,
         vehicleOpen: !!els.vehicleSection?.open,
-        metricsOpen: !!els.metricsSection?.open,
-        testModeOpen: !!timeAttack?.isTestMode?.()
+        metricsOpen: !!els.metricsSection?.open
       };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -5469,9 +5444,7 @@
         if (els.metricsSection && typeof data.metricsOpen === 'boolean') {
           els.metricsSection.open = data.metricsOpen;
         }
-        if (typeof data.testModeOpen === 'boolean') {
-          timeAttack?.setTestMode?.(data.testModeOpen);
-        }
+        timeAttack?.setTestMode?.(false);
         syncCourseGroupState();
         els.carPreset.value = state.carKey;
         els.courseSelect.value = state.courseKey;
@@ -5578,7 +5551,6 @@
     });
     els.courseDirToggle?.addEventListener('click', () => toggleCourseDirection());
     els.attackDirToggle?.addEventListener('click', () => {
-      if (timeAttack?.isTestMode?.()) return;
       if (timeAttack?.isAutoDirCourse?.()) return;
       toggleCourseDirection();
     });
@@ -5602,11 +5574,11 @@
     // PWA service worker (inline blob)
     if ('serviceWorker' in navigator) {
       const swCode = `
-        const CACHE='setup-lab-v46';
+        const CACHE='setup-lab-v48';
         const PRECACHE=[
           './','./index.html',
           './scripts/red-path-browser.js','./scripts/road-gate.js','./scripts/attack-gates.js',
-          './scripts/time-attack.js','./scripts/time-attack.js?v=46',
+          './scripts/time-attack.js','./scripts/time-attack.js?v=47',
           './assets/shigisan-ref.png','./assets/minoo-ref.png','./assets/hanna-ref.png',
           './assets/hanna-up-map.png','./assets/kanjo-ref.png'
         ];
