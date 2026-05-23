@@ -222,11 +222,27 @@
     }
     .attack-record-share { color: #e2e8f0; border-color: #3f3f46; }
     .attack-record-share:hover { border-color: #00e5ff; color: #00e5ff; background: rgba(0,229,255,.08); }
-    .attack-record-share--ig { color: #f9a8d4; border-color: #831843; }
+    .attack-record-share--brand {
+      padding: 0.28rem 0.38rem;
+      line-height: 0;
+      vertical-align: middle;
+    }
+    .attack-record-share--brand .attack-share-icon {
+      display: block;
+      width: 16px;
+      height: 16px;
+    }
+    .attack-record-share--x { color: #f1f5f9; border-color: #52525b; }
+    .attack-record-share--x:hover {
+      border-color: #e2e8f0;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .attack-record-share--ig { color: #f472b6; border-color: #9d174d; }
     .attack-record-share--ig:hover {
       border-color: #e1306c;
-      color: #fbcfe8;
-      background: rgba(225, 48, 108, 0.12);
+      color: #fdf2f8;
+      background: rgba(225, 48, 108, 0.15);
     }
     .attack-record-share--save { color: #67e8f9; border-color: #0e7490; }
     .attack-record-share--save:hover {
@@ -633,7 +649,7 @@
   <script src="scripts/red-path-browser.js"></script>
   <script src="scripts/road-gate.js"></script>
   <script src="scripts/attack-gates.js"></script>
-  <script src="scripts/time-attack.js?v=38"></script>
+  <script src="scripts/time-attack.js?v=39"></script>
   <script>
   (function () {
     'use strict';
@@ -5470,11 +5486,11 @@
     // PWA service worker (inline blob)
     if ('serviceWorker' in navigator) {
       const swCode = `
-        const CACHE='setup-lab-v38';
+        const CACHE='setup-lab-v39';
         const PRECACHE=[
           './','./index.html',
           './scripts/red-path-browser.js','./scripts/road-gate.js','./scripts/attack-gates.js',
-          './scripts/time-attack.js','./scripts/time-attack.js?v=38',
+          './scripts/time-attack.js','./scripts/time-attack.js?v=39',
           './assets/shigisan-ref.png','./assets/minoo-ref.png','./assets/hanna-ref.png',
           './assets/hanna-up-map.png','./assets/kanjo-ref.png'
         ];
