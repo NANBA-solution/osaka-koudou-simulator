@@ -119,12 +119,18 @@
   /** 記録保存時に先読み — IG タップ後すぐ保存・起動できるように */
   const storyBlobCache = new Map();
   const STORY_CACHE_MAX = 30;
+  /** 画像レイアウト変更時に increment（古いキャッシュを無効化） */
+  const STORY_IMG_VER = 3;
+
+  function storyCacheKey(entryId) {
+    return `${STORY_IMG_VER}:${entryId}`;
+  }
 
   function cacheStoryBlobForEntry(entry) {
     const meta = entryShareMeta(entry);
     buildStoryImageBlob(meta).then((blob) => {
       if (!blob) return;
-      storyBlobCache.set(entry.id, blob);
+      storyBlobCache.set(storyCacheKey(entry.id), blob);
       if (storyBlobCache.size > STORY_CACHE_MAX) {
         const oldest = storyBlobCache.keys().next().value;
         storyBlobCache.delete(oldest);
@@ -202,8 +208,13 @@
   }
 
   function entryShareMeta(entry) {
-    const courseName = COURSE_GROUP_LABELS[entry.courseGroup] || entry.courseGroup || '—';
     const routeLabel = (entry.label || '—').trim();
+    let courseName = COURSE_GROUP_LABELS[entry.courseGroup] || entry.courseGroup || '';
+    if (!courseName && routeLabel && routeLabel !== '—') {
+      const head = routeLabel.split(/[·・]/)[0].trim();
+      if (head) courseName = head;
+    }
+    if (!courseName) courseName = '—';
     const dirLabel = courseDirLabel(entry);
     let gateName = routeLabel;
     if (entry.testMode) gateName += ' (現地確認)';
@@ -252,11 +263,16 @@
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
+    const FONT_TIME = 'Orbitron, ui-monospace, monospace';
+    const FONT_JP =
+      '"JetBrains Mono", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic UI", sans-serif';
+
     if (global.document?.fonts?.load) {
       try {
         await Promise.all([
-          global.document.fonts.load('900 108px Orbitron'),
-          global.document.fonts.load('600 36px "JetBrains Mono"')
+          global.document.fonts.load(`900 108px ${FONT_TIME}`),
+          global.document.fonts.load(`700 52px ${FONT_JP}`),
+          global.document.fonts.load(`500 28px ${FONT_JP}`)
         ]);
       } catch (_) {}
     }
@@ -284,58 +300,69 @@
 
     ctx.textAlign = 'center';
     ctx.fillStyle = '#64748b';
-    ctx.font = '600 28px "JetBrains Mono", ui-monospace, monospace';
+    ctx.font = `600 28px ${FONT_JP}`;
     ctx.fillText('OSAKA KOUDO SIMULATOR', W / 2, 200);
     ctx.fillStyle = '#f87171';
-    ctx.font = '700 32px "JetBrains Mono", ui-monospace, monospace';
+    ctx.font = `700 32px ${FONT_JP}`;
     ctx.fillText('GPS TIME ATTACK', W / 2, 248);
 
-    ctx.fillStyle = '#00f0ff';
-    ctx.font = '900 108px Orbitron, ui-monospace, monospace';
-    ctx.shadowColor = 'rgba(0, 240, 255, 0.55)';
-    ctx.shadowBlur = 28;
-    ctx.fillText(time, W / 2, 520);
-    ctx.shadowBlur = 0;
-
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '600 34px "JetBrains Mono", ui-monospace, monospace';
-    ctx.fillText('LAP TIME', W / 2, 580);
-
-    const padX = 120;
+    const padX = 80;
     const maxW = W - padX * 2;
     ctx.textAlign = 'left';
-    let courseY = 630;
+
+    const routeLines = wrapLines(ctx, routeLabel, maxW);
+    const dirExtra = dirLabel && !routeLabelShowsDir(routeLabel, dirLabel) ? 1 : 0;
+    const panelLines = 2 + dirExtra + routeLines.length;
+    const panelH = panelLines * 42 + 36;
+    let courseY = 300;
+
+    ctx.fillStyle = 'rgba(0, 240, 255, 0.1)';
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.45)';
+    ctx.lineWidth = 2;
+    ctx.fillRect(padX - 16, courseY - 28, maxW + 32, panelH);
+    ctx.strokeRect(padX - 16, courseY - 28, maxW + 32, panelH);
 
     ctx.fillStyle = '#00e5ff';
-    ctx.font = '700 24px "JetBrains Mono", ui-monospace, monospace';
-    ctx.fillText('COURSE / コース', padX, courseY);
-    courseY += 48;
+    ctx.font = `700 26px ${FONT_JP}`;
+    ctx.fillText('コース', padX, courseY);
+    courseY += 44;
 
-    ctx.fillStyle = '#f1f5f9';
-    ctx.font = '700 48px Orbitron, "JetBrains Mono", ui-monospace, monospace';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `700 52px ${FONT_JP}`;
     ctx.fillText(courseName, padX, courseY);
-    courseY += 56;
+    courseY += 58;
 
-    if (dirLabel && !routeLabelShowsDir(routeLabel, dirLabel)) {
-      ctx.fillStyle = '#00f0ff';
-      ctx.font = '600 30px "JetBrains Mono", ui-monospace, monospace';
+    if (dirExtra) {
+      ctx.fillStyle = '#7dd3fc';
+      ctx.font = `600 32px ${FONT_JP}`;
       ctx.fillText(`↕ ${dirLabel}`, padX, courseY);
-      courseY += 44;
+      courseY += 46;
     }
 
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '500 28px "JetBrains Mono", ui-monospace, monospace';
-    const routeLines = wrapLines(ctx, routeLabel, maxW);
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = `500 30px ${FONT_JP}`;
     routeLines.forEach((ln, i) => {
-      ctx.fillText(ln, padX, courseY + i * 38);
+      ctx.fillText(ln, padX, courseY + i * 40);
     });
 
     ctx.textAlign = 'center';
+    ctx.fillStyle = '#00f0ff';
+    ctx.font = `900 108px ${FONT_TIME}`;
+    ctx.shadowColor = 'rgba(0, 240, 255, 0.55)';
+    ctx.shadowBlur = 28;
+    ctx.fillText(time, W / 2, 1180);
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = `600 34px ${FONT_JP}`;
+    ctx.fillText('LAP TIME', W / 2, 1240);
+
+    ctx.textAlign = 'center';
     ctx.fillStyle = '#475569';
-    ctx.font = '500 24px "JetBrains Mono", ui-monospace, monospace';
+    ctx.font = `500 24px ${FONT_JP}`;
     ctx.fillText('#大阪公道シミュレーター #タイムアタック', W / 2, H - 220);
     ctx.fillStyle = '#00e5ff';
-    ctx.font = '600 22px "JetBrains Mono", ui-monospace, monospace';
+    ctx.font = `600 22px ${FONT_JP}`;
     const host = SHARE_APP_URL.replace(/^https?:\/\//, '');
     ctx.fillText(host, W / 2, H - 170);
 
@@ -644,7 +671,7 @@
       const entry = loadLog().find((e) => e.id === id);
       if (!entry) return;
       const meta = entryShareMeta(entry);
-      const cached = storyBlobCache.get(id);
+      const cached = storyBlobCache.get(storyCacheKey(id));
 
       if (cached) {
         saveAndLaunchInstagramSync(cached, meta.time);
@@ -659,7 +686,7 @@
             global.alert('ストーリー用画像の作成に失敗しました。');
             return;
           }
-          storyBlobCache.set(id, blob);
+          storyBlobCache.set(storyCacheKey(id), blob);
           saveAndLaunchInstagramSync(blob, meta.time);
           addGpsLog('IG: 画像を保存 → Instagram を起動');
         })
@@ -695,7 +722,7 @@
         );
       }).join('');
       entries.slice(0, 20).forEach((e) => {
-        if (!storyBlobCache.has(e.id)) cacheStoryBlobForEntry(e);
+        cacheStoryBlobForEntry(e);
       });
     }
 
