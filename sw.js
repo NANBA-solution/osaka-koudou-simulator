@@ -1,5 +1,5 @@
 /* PWA / ホーム画面用 — 更新時は CACHE 名を increment */
-const CACHE = 'setup-lab-v53';
+const CACHE = 'setup-lab-v54';
 const PRECACHE = [
   './',
   './index.html',
@@ -8,7 +8,7 @@ const PRECACHE = [
   './scripts/road-gate.js',
   './scripts/attack-gates.js',
   './scripts/time-attack.js',
-  './scripts/time-attack.js?v=51',
+  './scripts/time-attack.js?v=52',
   './assets/shigisan-ref.png',
   './assets/minoo-ref.png',
   './assets/hanna-ref.png',

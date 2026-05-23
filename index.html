@@ -904,7 +904,7 @@
   <script src="scripts/red-path-browser.js"></script>
   <script src="scripts/road-gate.js"></script>
   <script src="scripts/attack-gates.js"></script>
-  <script src="scripts/time-attack.js?v=51"></script>
+  <script src="scripts/time-attack.js?v=52"></script>
   <script>
   (function () {
     'use strict';
@@ -3776,7 +3776,9 @@
           return `<button type="button" class="${active.trim()}" data-group="${g.id}" role="tab">${g.label}</button>`;
         }).join('');
       }
-      renderDirToggle(els.courseDirToggle, state.courseGroup, state.courseDir);
+      renderDirToggle(els.courseDirToggle, state.courseGroup, state.courseDir, {
+        autoDir: !!timeAttack?.isAutoDirCourse?.()
+      });
       renderAttackCourseUI();
       renderCourseGateCoords();
     }
@@ -3799,6 +3801,7 @@
     }
 
     function toggleCourseDirection() {
+      if (timeAttack?.isAutoDirCourse?.()) return;
       const g = COURSE_GROUPS.find((x) => x.id === state.courseGroup);
       if (!g || g.downOnly) return;
       if (timeAttack?.isRacing?.()) return;

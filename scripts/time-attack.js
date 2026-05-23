@@ -1892,6 +1892,7 @@
     function onGpsError(err) {
       addGpsLog(`位置情報: ${err.message}`);
       setStatus(MSG.errorPos, 'error');
+      if (err?.code === 1) stopGps();
     }
 
     async function startGps() {
