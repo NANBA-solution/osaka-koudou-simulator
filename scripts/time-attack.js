@@ -662,6 +662,98 @@
     return `osaka-koudou-lap-${safe}.png`;
   }
 
+  const storyPreviewState = { blob: null, timeLabel: '', objectUrl: null };
+
+  function closeStoryImagePreview() {
+    const modal = global.document.getElementById('storyImageModal');
+    const img = global.document.getElementById('storyImagePreview');
+    const loading = global.document.getElementById('storyImageLoading');
+    if (storyPreviewState.objectUrl) {
+      URL.revokeObjectURL(storyPreviewState.objectUrl);
+      storyPreviewState.objectUrl = null;
+    }
+    storyPreviewState.blob = null;
+    storyPreviewState.timeLabel = '';
+    if (img) {
+      img.removeAttribute('src');
+      img.hidden = true;
+    }
+    if (loading) loading.hidden = false;
+    if (modal) modal.hidden = true;
+    global.document.body.style.overflow = '';
+  }
+
+  function showStoryImagePreviewLoading() {
+    const modal = global.document.getElementById('storyImageModal');
+    const img = global.document.getElementById('storyImagePreview');
+    const loading = global.document.getElementById('storyImageLoading');
+    if (!modal) return;
+    if (img) img.hidden = true;
+    if (loading) {
+      loading.hidden = false;
+      loading.textContent = '画像を作成中…';
+    }
+    modal.hidden = false;
+    global.document.body.style.overflow = 'hidden';
+  }
+
+  function openStoryImagePreview(blob, timeLabel) {
+    const modal = global.document.getElementById('storyImageModal');
+    const img = global.document.getElementById('storyImagePreview');
+    const loading = global.document.getElementById('storyImageLoading');
+    if (!modal || !img || !blob) return;
+    if (storyPreviewState.objectUrl) URL.revokeObjectURL(storyPreviewState.objectUrl);
+    storyPreviewState.blob = blob;
+    storyPreviewState.timeLabel = timeLabel || 'lap';
+    storyPreviewState.objectUrl = URL.createObjectURL(blob);
+    img.src = storyPreviewState.objectUrl;
+    img.hidden = false;
+    if (loading) loading.hidden = true;
+    modal.hidden = false;
+    global.document.body.style.overflow = 'hidden';
+    global.setTimeout(() => {
+      const saveBtn = global.document.getElementById('storyImageSaveBtn');
+      saveBtn?.focus();
+    }, 80);
+  }
+
+  function initStoryImagePreviewModal(addGpsLogFn) {
+    const modal = global.document.getElementById('storyImageModal');
+    if (!modal || modal.dataset.wired === '1') return;
+    modal.dataset.wired = '1';
+
+    const onClose = () => closeStoryImagePreview();
+    modal.querySelectorAll('[data-story-modal-close]').forEach((el) => {
+      el.addEventListener('click', onClose);
+    });
+
+    const saveBtn = global.document.getElementById('storyImageSaveBtn');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => {
+        const { blob, timeLabel } = storyPreviewState;
+        if (!blob) return;
+        try {
+          downloadBlob(blob, storyImageFilename(timeLabel));
+          copyImageToClipboard(blob).catch(() => {});
+          if (addGpsLogFn) {
+            addGpsLogFn('画像保存: フォトに保存済み → IGストーリーでギャラリーから追加');
+          }
+          saveBtn.textContent = '保存しました';
+          global.setTimeout(() => {
+            if (saveBtn) saveBtn.textContent = '保存';
+          }, 2000);
+        } catch (err) {
+          console.error('story preview save failed', err);
+          global.alert('画像の保存に失敗しました。');
+        }
+      });
+    }
+
+    global.document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && modal && !modal.hidden) onClose();
+    });
+  }
+
   function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
     try {
@@ -1021,7 +1113,7 @@
       if (showAlert) global.alert(STORY_SAVE_HINT);
     }
 
-    function saveRecordStoryImage(id, showAlert) {
+    function previewRecordStoryImage(id) {
       const entry = loadLog().find((e) => e.id === id);
       if (!entry) return;
       const meta = entryShareMeta(entry);
@@ -1029,19 +1121,16 @@
 
       const finish = (blob) => {
         if (!blob) {
+          closeStoryImagePreview();
           global.alert('ストーリー用画像の作成に失敗しました。');
           return;
         }
         storyBlobCache.set(storyCacheKey(id), blob);
-        try {
-          downloadBlob(blob, storyImageFilename(meta.time));
-          copyImageToClipboard(blob).catch(() => {});
-          notifyStoryImageSaved(!!showAlert);
-        } catch (err) {
-          console.error('saveRecordStoryImage failed', err);
-          global.alert('画像の保存に失敗しました。');
-        }
+        openStoryImagePreview(blob, meta.time);
+        addGpsLog('画像プレビューを表示 — 保存ボタンでフォトへ');
       };
+
+      showStoryImagePreviewLoading();
 
       if (cached) {
         finish(cached);
@@ -1052,8 +1141,9 @@
       buildStoryImageBlob(meta, { skipFontWait: true })
         .then(finish)
         .catch((err) => {
-          console.error('saveRecordStoryImage build failed', err);
-          global.alert('画像の保存に失敗しました。');
+          console.error('previewRecordStoryImage build failed', err);
+          closeStoryImagePreview();
+          global.alert('画像の表示に失敗しました。');
         });
     }
 
@@ -1148,7 +1238,7 @@
           `<div class="text-[9px] text-slate-600">${date}</div></div>` +
           `<div class="attack-record-actions" role="group" aria-label="記録の共有">` +
           `<button type="button" class="attack-record-share attack-record-share--save" data-save-img-id="${id}" ` +
-          `aria-label="ストーリー用画像を保存" title="タイム・コース入り画像をフォトに保存">画像</button>` +
+          `aria-label="ストーリー用画像をプレビュー" title="画像を表示してから保存">画像</button>` +
           `<a href="${igHref}" class="attack-record-share attack-record-share--ig attack-record-share--brand" data-share-ig-id="${id}" ` +
           `aria-label="Instagramを開く（画像は自動保存）" title="画像を自動保存してInstagramを起動">${SHARE_ICON_INSTAGRAM}</a>` +
           `<button type="button" class="attack-record-share attack-record-share--x attack-record-share--brand" data-share-id="${id}" ` +
@@ -1664,7 +1754,7 @@
         const saveImgBtn = ev.target.closest('[data-save-img-id]');
         if (saveImgBtn) {
           ev.preventDefault();
-          saveRecordStoryImage(saveImgBtn.getAttribute('data-save-img-id'), true);
+          previewRecordStoryImage(saveImgBtn.getAttribute('data-save-img-id'));
           return;
         }
         const igBtn = ev.target.closest('[data-share-ig-id]');
@@ -1684,6 +1774,7 @@
     }
     if (els.clearAllBtn) els.clearAllBtn.addEventListener('click', clearAllRecords);
 
+    initStoryImagePreviewModal(addGpsLog);
     renderLogList();
     ensureStoryCanvasFonts();
     setGpsPower(false);
@@ -1702,7 +1793,7 @@
       reloadLog: renderLogList,
       shareRecordToX,
       shareRecordToInstagram,
-      saveRecordStoryImage
+      previewRecordStoryImage
     };
   }
 
