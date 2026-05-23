@@ -559,7 +559,7 @@
             </div>
             <div class="attack-lap-actions">
               <button type="button" id="attackReset" class="attack-lap-btn attack-lap-btn--reset" disabled title="タイム表示を00:00.000に戻す">リセット</button>
-              <button type="button" id="attackStop" class="attack-lap-btn attack-lap-btn--stop" disabled title="計測中のラップを中断（記録しない）">ストップ</button>
+              <button type="button" id="attackStop" class="attack-lap-btn attack-lap-btn--stop" disabled title="計測中のタイムを止める（記録しない）">ストップ</button>
             </div>
           </div>
           <div id="attackGpsLog" class="text-[10px] text-slate-500 font-mono bg-black/40 border border-motec-border rounded p-2 leading-relaxed">
@@ -765,7 +765,7 @@
   <script src="scripts/red-path-browser.js"></script>
   <script src="scripts/road-gate.js"></script>
   <script src="scripts/attack-gates.js"></script>
-  <script src="scripts/time-attack.js?v=45"></script>
+  <script src="scripts/time-attack.js?v=46"></script>
   <script>
   (function () {
     'use strict';
@@ -5602,11 +5602,11 @@
     // PWA service worker (inline blob)
     if ('serviceWorker' in navigator) {
       const swCode = `
-        const CACHE='setup-lab-v45';
+        const CACHE='setup-lab-v46';
         const PRECACHE=[
           './','./index.html',
           './scripts/red-path-browser.js','./scripts/road-gate.js','./scripts/attack-gates.js',
-          './scripts/time-attack.js','./scripts/time-attack.js?v=45',
+          './scripts/time-attack.js','./scripts/time-attack.js?v=46',
           './assets/shigisan-ref.png','./assets/minoo-ref.png','./assets/hanna-ref.png',
           './assets/hanna-up-map.png','./assets/kanjo-ref.png'
         ];

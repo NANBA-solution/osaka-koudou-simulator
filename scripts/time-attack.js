@@ -8,6 +8,13 @@
   const MAX_LOG = 200;
   const SHARE_APP_URL = 'https://nanba-solution.github.io/osaka-koudou-simulator/';
 
+  function confirmTwice(first, second) {
+    if (typeof global.confirm !== 'function') return true;
+    if (!global.confirm(first)) return false;
+    if (!global.confirm(second)) return false;
+    return true;
+  }
+
   /** タイムアタック用チャイム（Web Audio・外部ファイル不要） */
   const RecordChime = (function () {
     let ctx = null;
@@ -1200,6 +1207,8 @@
     let goalArmed = false;
     let startGateMid = null;
     let lastCoordsPaint = 0;
+    /** ストップ後はゲート通過で再スタートしない（リセットまで） */
+    let lapHold = false;
     /** スタート直後の誤ゴール防止（同一ライン・GPSノイズ対策） */
     const MIN_RACE_MS = 2500;
     const MIN_DIST_FROM_START_M = 30;
@@ -1214,6 +1223,7 @@
       off: '計測地点を通過するとスタート／ゴールを判定します',
       idle: '計測地点の通過を待機中',
       racing: '計測中 — ゴール地点を通過で停止',
+      stopped: 'ストップ — タイム停止中（リセットで再開）',
       finished: 'ゴール地点通過 · 記録を保存しました',
       errorPos: '位置情報を取得できません（設定を確認）',
       errorGate: '計測地点を取得できません（ネットを確認）',
@@ -1420,6 +1430,16 @@
 
     function deleteRecord(id) {
       if (!id) return;
+      const entry = loadLog().find((e) => e.id === id);
+      const label = entry ? `${entry.time} · ${entry.label || '—'}` : 'この記録';
+      if (
+        !confirmTwice(
+          `${label} を削除しますか？`,
+          '削除した記録は元に戻せません。削除しますか？'
+        )
+      ) {
+        return;
+      }
       saveLog(loadLog().filter((e) => e.id !== id));
       renderLogList();
       addGpsLog('記録を削除しました');
@@ -1427,7 +1447,14 @@
 
     function clearAllRecords() {
       if (!loadLog().length) return;
-      if (!global.confirm('すべてのタイム記録を削除しますか？')) return;
+      if (
+        !confirmTwice(
+          'すべてのタイム記録を削除しますか？',
+          '全記録を削除します。よろしいですか？'
+        )
+      ) {
+        return;
+      }
       saveLog([]);
       renderLogList();
       addGpsLog('全記録を削除しました');
@@ -1674,14 +1701,19 @@
       if (els.stopBtn) els.stopBtn.disabled = !active || !isRacing;
     }
 
-    function resetRaceUi() {
-      isRacing = false;
-      goalArmed = false;
-      startGateMid = null;
+    function clearUiTimer() {
       if (uiInterval) {
         clearInterval(uiInterval);
         uiInterval = null;
       }
+    }
+
+    function resetRaceUi() {
+      isRacing = false;
+      goalArmed = false;
+      startGateMid = null;
+      startTime = 0;
+      clearUiTimer();
       setTimerClass('idle');
       if (els.time) els.time.textContent = '00:00.000';
       updateLapButtons();
@@ -1689,6 +1721,15 @@
 
     function resetLap() {
       if (!active) return;
+      if (
+        !confirmTwice(
+          '計測表示をリセットしますか？',
+          'タイムを00:00.000に戻します。よろしいですか？'
+        )
+      ) {
+        return;
+      }
+      lapHold = false;
       resetRaceUi();
       restoreBidirectionalIdle();
       setStatus(MSG.idle, 'idle');
@@ -1697,10 +1738,18 @@
 
     function stopLap() {
       if (!active || !isRacing) return;
-      resetRaceUi();
+      const frozenMs = Math.max(0, performance.now() - startTime);
+      lapHold = true;
+      isRacing = false;
+      goalArmed = false;
+      startGateMid = null;
+      clearUiTimer();
+      setTimerClass('idle');
+      if (els.time) els.time.textContent = formatTime(frozenMs);
+      updateLapButtons();
       restoreBidirectionalIdle();
-      setStatus(MSG.idle, 'idle');
-      addGpsLog('ストップ（記録なし）');
+      setStatus(MSG.stopped, 'idle');
+      addGpsLog(`ストップ ${formatTime(frozenMs)}（記録なし）`);
     }
 
     function onPosition(position) {
@@ -1726,7 +1775,7 @@
         }
       }
 
-      if (lastPosition) {
+      if (lastPosition && !lapHold) {
         if (currentConfig.lapMode && currentConfig.start?.pA) {
           const needsDepart = lapNeedsDepartArming(currentConfig, testMode);
           if (isRacing && needsDepart && !goalArmed && startGateMid) {
