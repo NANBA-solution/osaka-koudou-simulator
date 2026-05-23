@@ -1,5 +1,5 @@
 /* PWA / ホーム画面用 — 更新時は CACHE 名を increment */
-const CACHE = 'setup-lab-v50';
+const CACHE = 'setup-lab-v51';
 const PRECACHE = [
   './',
   './index.html',

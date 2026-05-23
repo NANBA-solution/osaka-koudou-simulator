@@ -495,67 +495,132 @@
       .equip-ad-banner__link { text-align: left; }
     }
 
-    /* モバイル横画面：走行中のタイムだけ全画面（GPS計測は継続） */
+  .course-tab--timer.active {
+      border-color: #00e5ff;
+      color: #cffafe;
+      background: rgba(0, 229, 255, 0.14);
+      font-weight: 600;
+      box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.25);
+    }
+    .attack-timer-focus-exit {
+      display: none;
+      position: fixed;
+      top: max(0.5rem, env(safe-area-inset-top, 0px));
+      right: max(0.5rem, env(safe-area-inset-right, 0px));
+      z-index: 50;
+      padding: 0.4rem 0.75rem;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      border-radius: 0.25rem;
+      border: 1px solid #334155;
+      background: rgba(10, 14, 20, 0.92);
+      color: #94a3b8;
+    }
+    .attack-timer-focus-exit:hover {
+      border-color: #00e5ff;
+      color: #e2e8f0;
+    }
+    /* 横画面タイム表示（タブON または スマホ横向き） */
+    #app.attack-timer-focus > header.app-shell,
+    #app.attack-timer-focus > .equip-ad-banner,
     @media (orientation: landscape) and (max-height: 520px) {
       #app > header.app-shell,
-      #app > .equip-ad-banner {
-        display: none !important;
-      }
-      #app > .app-grid {
-        overflow: hidden;
-        display: block;
-      }
+      #app > .equip-ad-banner
+    } {
+      display: none !important;
+    }
+    #app.attack-timer-focus > .app-grid,
+    @media (orientation: landscape) and (max-height: 520px) {
+      #app > .app-grid
+    } {
+      overflow: hidden;
+      display: block;
+    }
+    #app.attack-timer-focus > .app-grid > main,
+    #app.attack-timer-focus > .app-grid > aside > details,
+    #app.attack-timer-focus > .app-grid > aside > .attack-panel > *:not(.attack-timer-stage),
+    @media (orientation: landscape) and (max-height: 520px) {
       #app > .app-grid > main,
       #app > .app-grid > aside > details,
-      #app > .app-grid > aside > .attack-panel > *:not(.attack-timer-stage) {
-        display: none !important;
-      }
-      #app > .app-grid > aside {
-        display: block;
-        width: 100%;
-        max-width: none;
-      }
-      #app > .app-grid > aside > .attack-panel {
-        position: fixed;
-        inset: 0;
-        z-index: 40;
-        margin: 0;
-        padding: 0;
-        border: none;
-        border-radius: 0;
-        box-shadow: none;
-        background: #05080e;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .attack-timer-stage {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-        background: radial-gradient(ellipse at 50% 40%, rgba(0, 240, 255, 0.08) 0%, transparent 55%);
-        border: none !important;
-      }
-      .attack-timer-stage > p {
-        font-size: 0.65rem;
-        letter-spacing: 0.35em;
-        margin-bottom: 0.35rem;
-        color: #64748b;
-      }
-      .attack-timer-stage .attack-timer {
-        font-size: clamp(3.5rem, 28vh, 7.5rem);
-        line-height: 1;
-      }
-      .attack-timer-stage .attack-lap-actions {
-        display: none !important;
-      }
-      .story-image-modal {
-        z-index: 10000;
-      }
+      #app > .app-grid > aside > .attack-panel > *:not(.attack-timer-stage)
+    } {
+      display: none !important;
+    }
+    #app.attack-timer-focus > .app-grid > aside,
+    @media (orientation: landscape) and (max-height: 520px) {
+      #app > .app-grid > aside
+    } {
+      display: block;
+      width: 100%;
+      max-width: none;
+    }
+    #app.attack-timer-focus > .app-grid > aside > .attack-panel,
+    @media (orientation: landscape) and (max-height: 520px) {
+      #app > .app-grid > aside > .attack-panel
+    } {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      margin: 0;
+      padding: 0;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+      background: #05080e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #app.attack-timer-focus .attack-timer-stage,
+    @media (orientation: landscape) and (max-height: 520px) {
+      .attack-timer-stage
+    } {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      background: radial-gradient(ellipse at 50% 40%, rgba(0, 240, 255, 0.08) 0%, transparent 55%);
+      border: none !important;
+    }
+    #app.attack-timer-focus .attack-timer-stage > p,
+    @media (orientation: landscape) and (max-height: 520px) {
+      .attack-timer-stage > p
+    } {
+      font-size: 0.65rem;
+      letter-spacing: 0.35em;
+      margin-bottom: 0.35rem;
+      color: #64748b;
+    }
+    #app.attack-timer-focus .attack-timer-stage .attack-timer,
+    @media (orientation: landscape) and (max-height: 520px) {
+      .attack-timer-stage .attack-timer
+    } {
+      font-size: clamp(3.5rem, 28vh, 7.5rem);
+      line-height: 1;
+    }
+    #app.attack-timer-focus .attack-timer-stage .attack-lap-actions,
+    @media (orientation: landscape) and (max-height: 520px) {
+      .attack-timer-stage .attack-lap-actions
+    } {
+      display: none !important;
+    }
+    #app.attack-timer-focus .attack-timer-focus-exit,
+    @media (orientation: landscape) and (max-height: 520px) {
+      #app .attack-timer-focus-exit
+    } {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #app.attack-timer-focus .story-image-modal,
+    @media (orientation: landscape) and (max-height: 520px) {
+      .story-image-modal
+    } {
+      z-index: 10000;
     }
   </style>
 </head>
@@ -605,6 +670,8 @@
           <div class="space-y-2">
             <p class="text-[9px] text-slate-600 tracking-wider uppercase">コース選択</p>
             <div class="flex gap-1 flex-wrap" id="attackCourseTabs" role="tablist" aria-label="タイムアタックコース"></div>
+            <p class="text-[9px] text-slate-600 tracking-wider uppercase mt-1">表示</p>
+            <div class="flex gap-1 flex-wrap" id="attackViewTabs" role="tablist" aria-label="タイム表示モード"></div>
             <button type="button" id="attackDirToggle" class="course-dir-btn w-full" title="上り／下り切替">↑ 上り</button>
             <p id="attackGateNote" class="text-[10px] text-slate-500 leading-relaxed">計測地点（ゲート）のラインを通過するとタイムを計測します</p>
           </div>
@@ -614,6 +681,7 @@
           </p>
           <p id="attackCoords" class="text-[10px] text-slate-600 font-mono tabular-nums">—</p>
           <div class="attack-timer-stage bg-black/50 border border-motec-border rounded p-3 text-center">
+            <button type="button" id="attackTimerFocusExit" class="attack-timer-focus-exit" aria-label="通常表示に戻る">戻る</button>
             <p class="text-[9px] text-slate-600 tracking-widest uppercase mb-1">Current Lap</p>
             <div id="attackTimerPulse">
               <div class="speed-indicator">
@@ -3329,6 +3397,7 @@
       Ne: 7000,
       wet: false,
       mapView: 'course',
+      attackTimerFocus: false,
       results: null
     };
 
@@ -3397,6 +3466,8 @@
       mapLegendSim: $('mapLegendSim'),
       courseGateCoords: $('courseGateCoords'),
       attackCourseTabs: $('attackCourseTabs'),
+      attackViewTabs: $('attackViewTabs'),
+      attackTimerFocusExit: $('attackTimerFocusExit'),
       attackDirToggle: $('attackDirToggle'),
       vehicleSection: $('vehicleSection'),
       metricsSection: $('metricsSection'),
@@ -3645,6 +3716,25 @@
       btn.title = g.downOnly ? '阪奈は下りのみ' : 'タップで上り／下り切替';
     }
 
+    function applyAttackTimerFocus(on) {
+      state.attackTimerFocus = !!on;
+      const app = document.getElementById('app');
+      if (app) app.classList.toggle('attack-timer-focus', state.attackTimerFocus);
+      renderAttackViewTabs();
+      saveLocal();
+    }
+
+    function renderAttackViewTabs() {
+      if (!els.attackViewTabs) return;
+      const normalCls = state.attackTimerFocus ? 'course-tab' : 'course-tab active';
+      const timerCls = state.attackTimerFocus
+        ? 'course-tab course-tab--timer active'
+        : 'course-tab course-tab--timer';
+      els.attackViewTabs.innerHTML =
+        `<button type="button" class="${normalCls}" data-attack-view="normal" role="tab">通常</button>` +
+        `<button type="button" class="${timerCls}" data-attack-view="timer" role="tab">横画面タイム</button>`;
+    }
+
     function renderAttackCourseUI() {
       if (els.attackCourseTabs) {
         els.attackCourseTabs.innerHTML = COURSE_GROUPS.map((g) => {
@@ -3653,6 +3743,7 @@
           return `<button type="button" class="${cls}" data-group="${g.id}" role="tab">${g.label}</button>`;
         }).join('');
       }
+      renderAttackViewTabs();
       renderDirToggle(els.attackDirToggle, state.courseGroup, state.courseDir, {
         autoDir: !!timeAttack?.isAutoDirCourse?.()
       });
@@ -5457,7 +5548,8 @@
         mapView: state.mapView,
         partsOpen: !!els.partsSection?.open,
         vehicleOpen: !!els.vehicleSection?.open,
-        metricsOpen: !!els.metricsSection?.open
+        metricsOpen: !!els.metricsSection?.open,
+        attackTimerFocus: !!state.attackTimerFocus
       };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -5508,6 +5600,11 @@
           els.metricsSection.open = data.metricsOpen;
         }
         timeAttack?.setTestMode?.(false);
+        if (typeof data.attackTimerFocus === 'boolean') {
+          applyAttackTimerFocus(data.attackTimerFocus);
+        } else {
+          applyAttackTimerFocus(false);
+        }
         syncCourseGroupState();
         els.carPreset.value = state.carKey;
         els.courseSelect.value = state.courseKey;
@@ -5612,6 +5709,12 @@
       const btn = e.target.closest('[data-group]');
       if (btn?.dataset.group) selectAttackCourse(btn.dataset.group);
     });
+    els.attackViewTabs?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-attack-view]');
+      if (!btn) return;
+      applyAttackTimerFocus(btn.dataset.attackView === 'timer');
+    });
+    els.attackTimerFocusExit?.addEventListener('click', () => applyAttackTimerFocus(false));
     els.courseDirToggle?.addEventListener('click', () => toggleCourseDirection());
     els.attackDirToggle?.addEventListener('click', () => {
       if (timeAttack?.isAutoDirCourse?.()) return;
@@ -5705,6 +5808,7 @@
     }
 
     populateSelects();
+    applyAttackTimerFocus(false);
     loadLocal();
     setMapView(state.mapView);
     loadRefMaps();
