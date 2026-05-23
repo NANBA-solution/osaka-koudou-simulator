@@ -3811,59 +3811,92 @@
       return g.up || g.down || 'shigisan_up';
     }
 
+    function storyMapRoundRect(ctx, x, y, w, h, r) {
+      const rad = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + rad, y);
+      ctx.lineTo(x + w - rad, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + rad);
+      ctx.lineTo(x + w, y + h - rad);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
+      ctx.lineTo(x + rad, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - rad);
+      ctx.lineTo(x, y + rad);
+      ctx.quadraticCurveTo(x, y, x + rad, y);
+      ctx.closePath();
+    }
+
     function renderStoryCourseMap(ctx, x, y, w, h, opts) {
       if (!ctx || w < 40 || h < 40) return false;
       const groupId = opts?.courseGroup || 'shigisan';
       const dir = opts?.courseDir || 'up';
+      const r = 14;
+
+      ctx.save();
+      storyMapRoundRect(ctx, x, y, w, h, r);
+      const frameGrad = ctx.createLinearGradient(x, y, x + w, y + h);
+      frameGrad.addColorStop(0, 'rgba(0, 240, 255, 0.2)');
+      frameGrad.addColorStop(1, 'rgba(255, 70, 130, 0.12)');
+      ctx.fillStyle = frameGrad;
+      ctx.fill();
+      const borderGrad = ctx.createLinearGradient(x, y, x + w, y + h);
+      borderGrad.addColorStop(0, 'rgba(0, 240, 255, 0.9)');
+      borderGrad.addColorStop(0.55, 'rgba(100, 200, 255, 0.4)');
+      borderGrad.addColorStop(1, 'rgba(255, 90, 150, 0.65)');
+      ctx.strokeStyle = borderGrad;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = 'rgba(0, 240, 255, 0.35)';
+      ctx.shadowBlur = 16;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
       if (opts?.testMode || groupId === 'test') {
-        ctx.save();
-        ctx.fillStyle = 'rgba(0, 240, 255, 0.08)';
-        ctx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
-        ctx.lineWidth = 2;
-        ctx.fillRect(x, y, w, h);
-        ctx.strokeRect(x, y, w, h);
+        ctx.fillStyle = 'rgba(8, 14, 22, 0.85)';
+        storyMapRoundRect(ctx, x + 12, y + 12, w - 24, h - 24, 10);
+        ctx.fill();
         ctx.fillStyle = '#94a3b8';
         ctx.font = '600 28px "Hiragino Sans", "Yu Gothic", sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText('テストコース（現地確認）', x + w / 2, y + h / 2);
+        drawStoryMapHudLabel(ctx, x, y, w);
         ctx.restore();
         return true;
       }
+
       const courseKey = resolveStoryCourseKey(groupId, dir);
       const course = COURSES[courseKey];
-      if (!course?.path?.length) return false;
+      if (!course?.path?.length) {
+        ctx.restore();
+        return false;
+      }
 
-      ctx.save();
-      ctx.fillStyle = 'rgba(0, 240, 255, 0.08)';
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.45)';
-      ctx.lineWidth = 2;
-      ctx.fillRect(x, y, w, h);
-      ctx.strokeRect(x, y, w, h);
-
-      const pad = 20;
+      const pad = 14;
       const innerX = x + pad;
       const innerY = y + pad;
       const innerW = w - pad * 2;
       const innerH = h - pad * 2;
-      ctx.beginPath();
-      ctx.rect(innerX, innerY, innerW, innerH);
+      storyMapRoundRect(ctx, innerX, innerY, innerW, innerH, 10);
+      ctx.save();
       ctx.clip();
+      ctx.fillStyle = '#0a0e14';
+      ctx.fillRect(innerX, innerY, innerW, innerH);
 
       const prevKey = state.courseKey;
+      let mapDrawn = false;
       state.courseKey = courseKey;
       try {
         ctx.translate(innerX, innerY);
         const mapW = innerW;
         const mapH = innerH;
-        const padMap = 18;
+        const padMap = 22;
         drawCoursePanelBg(ctx, mapW, mapH, padMap);
         const viewRect = computeCourseRect(course, mapW, mapH, padMap);
-        if (!viewRect) return false;
+        if (!viewRect) return;
         const layout = buildTrackLayout(course, mapW, mapH, padMap, viewRect);
         const { pts } = layout;
-        if (pts.length < 2) return false;
+        if (pts.length < 2) return;
 
-        const strokePath = (color, width, blur) => {
+        const strokePath = (color, width, blur, shadow) => {
           ctx.beginPath();
           ctx.moveTo(pts[0][0], pts[0][1]);
           for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
@@ -3871,51 +3904,102 @@
           ctx.lineWidth = width;
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
-          ctx.shadowColor = color;
-          ctx.shadowBlur = blur;
+          if (blur) {
+            ctx.shadowColor = shadow || color;
+            ctx.shadowBlur = blur;
+          }
           ctx.stroke();
           ctx.shadowBlur = 0;
         };
 
-        strokePath('rgba(24,24,27,.9)', Math.max(10, innerW * 0.014), 0);
-        strokePath('#ffffff', Math.max(8, innerW * 0.011), 0);
-        strokePath('#dc2626', Math.max(5, innerW * 0.007), 2);
+        const wRoad = Math.max(11, innerW * 0.016);
+        strokePath('rgba(15, 20, 28, 0.95)', wRoad + 6, 0);
+        strokePath('#f4f4f5', wRoad + 2, 0);
+        strokePath('rgba(255, 80, 100, 0.45)', wRoad, 14, 'rgba(255, 60, 90, 0.8)');
+        strokePath('#ef4444', wRoad - 3, 8, 'rgba(220, 38, 38, 0.9)');
+        strokePath('#ff6b6b', Math.max(3, wRoad - 6), 0);
 
         const lmXY = (u, v) => uvToCourseScreen(u, v, viewRect);
         (course.landmarks || []).forEach((lm) => {
           const [lx, ly] = lmXY(lm.u, lm.v);
-          ctx.fillStyle = '#e02020';
           ctx.beginPath();
-          ctx.arc(lx, ly, 5, 0, Math.PI * 2);
+          ctx.arc(lx, ly, 6, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255, 80, 100, 0.35)';
           ctx.fill();
-          ctx.font = 'bold 11px "Hiragino Sans", "Yu Gothic", sans-serif';
+          ctx.beginPath();
+          ctx.arc(lx, ly, 4, 0, Math.PI * 2);
+          ctx.fillStyle = '#dc2626';
+          ctx.fill();
+          ctx.font = 'bold 12px "Hiragino Sans", "Yu Gothic", sans-serif';
           ctx.textAlign = 'left';
-          ctx.fillStyle = '#18181b';
-          ctx.fillText(lm.label, lx + 7, ly + 4);
+          ctx.fillStyle = '#27272a';
+          ctx.fillText(lm.label, lx + 9, ly + 4);
         });
 
         const start = lmXY(course.path[0][0], course.path[0][1]);
         const goal = lmXY(course.path[course.path.length - 1][0], course.path[course.path.length - 1][1]);
-        const drawPin = (p, label) => {
+        const drawPin = (p, label, color) => {
           ctx.beginPath();
-          ctx.arc(p[0], p[1], 10, 0, Math.PI * 2);
-          ctx.fillStyle = '#ff3d3d';
+          ctx.arc(p[0], p[1], 16, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(0, 240, 255, 0.25)';
           ctx.fill();
+          ctx.beginPath();
+          ctx.arc(p[0], p[1], 11, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.shadowColor = color;
+          ctx.shadowBlur = 14;
+          ctx.fill();
+          ctx.shadowBlur = 0;
           ctx.strokeStyle = '#fff';
-          ctx.lineWidth = 2;
+          ctx.lineWidth = 2.5;
           ctx.stroke();
           ctx.fillStyle = '#fff';
-          ctx.font = 'bold 10px JetBrains Mono, monospace';
+          ctx.font = 'bold 11px JetBrains Mono, monospace';
           ctx.textAlign = 'center';
           ctx.fillText(label, p[0], p[1] + 4);
         };
-        drawPin(start, 'S');
-        drawPin(goal, 'F');
-        return true;
+        drawPin(start, 'S', '#00c8e8');
+        drawPin(goal, 'F', '#ff3d5c');
+
+        const vig = ctx.createRadialGradient(
+          mapW / 2, mapH / 2, mapH * 0.2,
+          mapW / 2, mapH / 2, mapH * 0.72
+        );
+        vig.addColorStop(0, 'transparent');
+        vig.addColorStop(1, 'rgba(6, 10, 16, 0.35)');
+        ctx.fillStyle = vig;
+        ctx.fillRect(0, 0, mapW, mapH);
+        mapDrawn = true;
       } finally {
         state.courseKey = prevKey;
         ctx.restore();
       }
+      if (!mapDrawn) {
+        ctx.restore();
+        return false;
+      }
+      drawStoryMapHudLabel(ctx, x, y, w);
+      ctx.restore();
+      return true;
+    }
+
+    function drawStoryMapHudLabel(ctx, x, y, w) {
+      const label = 'ROUTE MAP';
+      ctx.save();
+      ctx.font = '700 18px JetBrains Mono, monospace';
+      const tw = ctx.measureText(label).width + 28;
+      const lx = x + 20;
+      const ly = y + 16;
+      storyMapRoundRect(ctx, lx, ly, tw, 32, 6);
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.22)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.55)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = '#00f0ff';
+      ctx.textAlign = 'left';
+      ctx.fillText(label, lx + 14, ly + 22);
+      ctx.restore();
     }
 
     globalThis.renderStoryCourseMap = renderStoryCourseMap;
@@ -5359,7 +5443,7 @@
     // PWA service worker (inline blob)
     if ('serviceWorker' in navigator) {
       const swCode = `
-        const CACHE='setup-lab-v30';
+        const CACHE='setup-lab-v31';
         self.addEventListener('install', e => {
           e.waitUntil(caches.open(CACHE).then(c => c.addAll([
             './','./index.html','./scripts/red-path-browser.js',

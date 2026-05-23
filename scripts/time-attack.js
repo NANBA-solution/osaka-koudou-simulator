@@ -120,7 +120,7 @@
   const storyBlobCache = new Map();
   const STORY_CACHE_MAX = 30;
   /** 画像レイアウト変更時に increment（古いキャッシュを無効化） */
-  const STORY_IMG_VER = 5;
+  const STORY_IMG_VER = 6;
   const STORY_FONT_LINK_ID = 'story-noto-sans-jp-css';
   /** Canvas は先頭フォントのみ使うため JetBrains を日本語に使わない */
   const FONT_JP =
@@ -320,6 +320,140 @@
     });
   }
 
+  function storyRoundRect(ctx, x, y, w, h, r) {
+    const rad = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rad, y);
+    ctx.lineTo(x + w - rad, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + rad);
+    ctx.lineTo(x + w, y + h - rad);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
+    ctx.lineTo(x + rad, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - rad);
+    ctx.lineTo(x, y + rad);
+    ctx.quadraticCurveTo(x, y, x + rad, y);
+    ctx.closePath();
+  }
+
+  function drawStoryBackground(ctx, W, H) {
+    const bg = ctx.createLinearGradient(0, 0, W * 0.2, H);
+    bg.addColorStop(0, '#0c1420');
+    bg.addColorStop(0.5, '#05080e');
+    bg.addColorStop(1, '#0a1018');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    const glow = (cx, cy, r, color) => {
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+      g.addColorStop(0, color);
+      g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    };
+    glow(W * 0.12, H * 0.18, W * 0.55, 'rgba(0, 240, 255, 0.14)');
+    glow(W * 0.88, H * 0.42, W * 0.45, 'rgba(255, 60, 120, 0.1)');
+    glow(W * 0.5, H * 0.92, W * 0.6, 'rgba(0, 180, 255, 0.08)');
+
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.04)';
+    ctx.lineWidth = 1;
+    for (let y = 0; y < H; y += 48) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(W, y);
+      ctx.stroke();
+    }
+    for (let x = 0; x < W; x += 48) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, H);
+      ctx.stroke();
+    }
+
+    const frame = 56;
+    ctx.strokeStyle = 'rgba(0, 240, 255, 0.22)';
+    ctx.lineWidth = 1;
+    storyRoundRect(ctx, frame, frame, W - frame * 2, H - frame * 2, 20);
+    ctx.stroke();
+    const accent = (fx, fy, len, hdx, hdy) => {
+      ctx.strokeStyle = '#00f0ff';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = 'rgba(0, 240, 255, 0.8)';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.moveTo(fx, fy);
+      ctx.lineTo(fx + hdx * len, fy + hdy * len);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    };
+    const m = frame + 8;
+    accent(m, m, 48, 1, 0);
+    accent(m, m, 48, 0, 1);
+    accent(W - m, m, 48, -1, 0);
+    accent(W - m, m, 48, 0, 1);
+    accent(m, H - m, 48, 1, 0);
+    accent(m, H - m, 48, 0, -1);
+    accent(W - m, H - m, 48, -1, 0);
+    accent(W - m, H - m, 48, 0, -1);
+  }
+
+  function drawGlassPanel(ctx, x, y, w, h, r) {
+    ctx.save();
+    storyRoundRect(ctx, x, y, w, h, r);
+    const fill = ctx.createLinearGradient(x, y, x, y + h);
+    fill.addColorStop(0, 'rgba(0, 240, 255, 0.14)');
+    fill.addColorStop(1, 'rgba(0, 80, 120, 0.06)');
+    ctx.fillStyle = fill;
+    ctx.fill();
+    const stroke = ctx.createLinearGradient(x, y, x + w, y + h);
+    stroke.addColorStop(0, 'rgba(0, 240, 255, 0.85)');
+    stroke.addColorStop(0.5, 'rgba(120, 220, 255, 0.35)');
+    stroke.addColorStop(1, 'rgba(255, 80, 140, 0.55)');
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = 'rgba(0, 240, 255, 0.35)';
+    ctx.shadowBlur = 14;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  function drawStoryHeader(ctx, W) {
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(100, 116, 139, 0.95)';
+    ctx.font = `600 26px ${FONT_LATIN}`;
+    ctx.letterSpacing = '0.18em';
+    ctx.fillText('OSAKA KOUDO SIMULATOR', W / 2, 188);
+    ctx.letterSpacing = '0';
+    const subW = 280;
+    const subX = (W - subW) / 2;
+    ctx.fillStyle = 'rgba(248, 113, 113, 0.25)';
+    storyRoundRect(ctx, subX, 202, subW, 44, 8);
+    ctx.fill();
+    ctx.fillStyle = '#fca5a5';
+    ctx.font = `700 28px ${FONT_LATIN}`;
+    ctx.fillText('GPS TIME ATTACK', W / 2, 232);
+    ctx.fillStyle = 'rgba(0, 240, 255, 0.5)';
+    ctx.fillRect(W / 2 - 120, 252, 240, 2);
+  }
+
+  function drawTimeHud(ctx, W, timeY, time) {
+    const hudW = 920;
+    const hudH = 168;
+    const hudX = (W - hudW) / 2;
+    const hudY = timeY - 118;
+    drawGlassPanel(ctx, hudX, hudY, hudW, hudH, 16);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#64748b';
+    ctx.font = `600 26px ${FONT_LATIN}`;
+    ctx.fillText('LAP TIME', W / 2, hudY + 38);
+    ctx.fillStyle = '#00f0ff';
+    ctx.font = `900 96px ${FONT_TIME}`;
+    ctx.shadowColor = 'rgba(0, 240, 255, 0.65)';
+    ctx.shadowBlur = 32;
+    ctx.fillText(time, W / 2, hudY + 128);
+    ctx.shadowBlur = 0;
+  }
+
   async function buildStoryImageBlob(meta) {
     const courseName = (meta.courseName || '—').trim() || '—';
     const routeLabel = (meta.routeLabel || meta.gateName || '—').trim() || '—';
@@ -334,142 +468,95 @@
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
-    const bg = ctx.createLinearGradient(0, 0, 0, H);
-    bg.addColorStop(0, '#0a1018');
-    bg.addColorStop(0.45, '#05070a');
-    bg.addColorStop(1, '#0d1219');
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, W, H);
+    drawStoryBackground(ctx, W, H);
+    drawStoryHeader(ctx, W);
 
-    ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(48, 48, W - 96, H - 96);
-
-    ctx.shadowColor = 'rgba(0, 240, 255, 0.45)';
-    ctx.shadowBlur = 24;
-    ctx.strokeStyle = '#00f0ff';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(72, 72, W - 144, H - 144);
-    ctx.shadowBlur = 0;
-
-    ctx.fillStyle = 'rgba(0, 229, 255, 0.12)';
-    ctx.fillRect(72, 72, W - 144, 4);
-
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#64748b';
-    ctx.font = `600 28px ${FONT_LATIN}`;
-    ctx.fillText('OSAKA KOUDO SIMULATOR', W / 2, 200);
-    ctx.fillStyle = '#f87171';
-    ctx.font = `700 32px ${FONT_LATIN}`;
-    ctx.fillText('GPS TIME ATTACK', W / 2, 248);
-
-    const padX = 80;
-    const maxW = W - padX * 2;
+    const padX = 72;
+    const cardX = 56;
+    const cardW = W - cardX * 2;
+    const maxW = cardW - 48;
     ctx.textAlign = 'left';
 
     const routeLines = wrapLines(ctx, routeLabel, maxW);
     const dirExtra = dirLabel && !routeLabelShowsDir(routeLabel, dirLabel) ? 1 : 0;
     const panelLines = 2 + dirExtra + routeLines.length;
-    const panelH = panelLines * 42 + 36;
-    let courseY = 300;
+    const panelH = panelLines * 40 + 52;
+    const panelY = 272;
+    let courseY = panelY + 36;
 
-    ctx.fillStyle = 'rgba(0, 240, 255, 0.1)';
-    ctx.strokeStyle = 'rgba(0, 240, 255, 0.45)';
-    ctx.lineWidth = 2;
-    ctx.fillRect(padX - 16, courseY - 28, maxW + 32, panelH);
-    ctx.strokeRect(padX - 16, courseY - 28, maxW + 32, panelH);
+    drawGlassPanel(ctx, cardX, panelY, cardW, panelH, 14);
 
-    ctx.fillStyle = '#00e5ff';
-    ctx.font = `700 26px ${FONT_JP}`;
-    ctx.fillText('コース', padX, courseY);
-    courseY += 44;
+    ctx.fillStyle = 'rgba(0, 240, 255, 0.35)';
+    ctx.font = `700 20px ${FONT_LATIN}`;
+    ctx.fillText('COURSE', padX, courseY);
+    ctx.fillStyle = '#00f0ff';
+    ctx.font = `700 22px ${FONT_JP}`;
+    ctx.fillText('コース', padX + 108, courseY);
+    courseY += 40;
 
     ctx.fillStyle = '#ffffff';
-    ctx.font = `700 52px ${FONT_JP}`;
+    ctx.font = `700 56px ${FONT_JP}`;
+    ctx.shadowColor = 'rgba(255, 255, 255, 0.25)';
+    ctx.shadowBlur = 12;
     ctx.fillText(courseName, padX, courseY);
-    courseY += 58;
+    ctx.shadowBlur = 0;
+    courseY += 62;
 
     if (dirExtra) {
-      ctx.fillStyle = '#7dd3fc';
-      ctx.font = `600 32px ${FONT_JP}`;
-      ctx.fillText(`↕ ${dirLabel}`, padX, courseY);
-      courseY += 46;
+      const badgeW = ctx.measureText(dirLabel).width + 48;
+      storyRoundRect(ctx, padX, courseY - 28, badgeW, 40, 8);
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.2)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.5)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = '#a5f3fc';
+      ctx.font = `600 28px ${FONT_JP}`;
+      ctx.fillText(`↕ ${dirLabel}`, padX + 16, courseY);
+      courseY += 48;
     }
 
-    ctx.fillStyle = '#cbd5e1';
-    ctx.font = `500 30px ${FONT_JP}`;
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = `500 28px ${FONT_JP}`;
     routeLines.forEach((ln, i) => {
-      ctx.fillText(ln, padX, courseY + i * 40);
+      ctx.fillText(ln, padX, courseY + i * 36);
     });
 
-    const panelBottom = 300 - 28 + panelH;
-    const mapX = 72;
-    const mapW = W - 144;
-    const mapTop = panelBottom + 28;
-    const mapBottom = 1060;
-    const mapH = Math.max(320, mapBottom - mapTop);
+    const panelBottom = panelY + panelH;
+    const mapX = cardX;
+    const mapW = cardW;
+    const mapTop = panelBottom + 20;
+    const mapBottom = 1000;
+    const mapH = Math.max(340, mapBottom - mapTop);
     const drewMap = global.renderStoryCourseMap?.(ctx, mapX, mapTop, mapW, mapH, {
       courseGroup: meta.courseGroup,
       courseDir: meta.courseDir,
       testMode: meta.testMode
     });
     if (!drewMap) {
-      ctx.fillStyle = 'rgba(0, 240, 255, 0.06)';
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.3)';
-      ctx.lineWidth = 2;
-      ctx.fillRect(mapX, mapTop, mapW, mapH);
-      ctx.strokeRect(mapX, mapTop, mapW, mapH);
+      drawGlassPanel(ctx, mapX, mapTop, mapW, mapH, 14);
       ctx.fillStyle = '#64748b';
       ctx.font = `500 26px ${FONT_JP}`;
       ctx.textAlign = 'center';
-      ctx.fillText('コースマップ', mapX + mapW / 2, mapTop + mapH / 2 - 12);
+      ctx.fillText('ROUTE MAP', mapX + mapW / 2, mapTop + mapH / 2 - 16);
       ctx.fillText(routeLabel, mapX + mapW / 2, mapTop + mapH / 2 + 28);
       ctx.textAlign = 'left';
     }
 
-    const timeY = drewMap ? mapTop + mapH + 72 : 1180;
+    const timeY = drewMap ? mapTop + mapH + 100 : 1180;
+    drawTimeHud(ctx, W, timeY, time);
 
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#00f0ff';
-    ctx.font = `900 108px ${FONT_TIME}`;
-    ctx.shadowColor = 'rgba(0, 240, 255, 0.55)';
-    ctx.shadowBlur = 28;
-    ctx.fillText(time, W / 2, timeY);
-    ctx.shadowBlur = 0;
-
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = `600 34px ${FONT_LATIN}`;
-    ctx.fillText('LAP TIME', W / 2, timeY + 60);
-
-    const summaryParts = [courseName];
-    if (routeLabel && routeLabel !== '—' && routeLabel !== courseName) {
-      summaryParts.push(routeLabel);
-    } else if (dirLabel && !routeLabelShowsDir(routeLabel, dirLabel)) {
-      summaryParts.push(dirLabel);
-    }
-    const summaryText = summaryParts.join(' · ');
-    const summaryMaxW = W - 160;
-    ctx.textAlign = 'left';
-    ctx.font = `700 38px ${FONT_JP}`;
-    const summaryLines = wrapLines(ctx, summaryText, summaryMaxW);
-    drawCenteredLines(
-      ctx,
-      summaryLines,
-      timeY + 110,
-      46,
-      `700 38px ${FONT_JP}`,
-      '#f8fafc',
-      W / 2
-    );
-
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#475569';
-    ctx.font = `500 24px ${FONT_JP}`;
-    ctx.fillText('#大阪公道シミュレーター #タイムアタック', W / 2, H - 220);
+    ctx.fillStyle = 'rgba(71, 85, 105, 0.95)';
+    ctx.font = `500 22px ${FONT_JP}`;
+    ctx.fillText('#大阪公道シミュレーター  #タイムアタック', W / 2, H - 200);
     ctx.fillStyle = '#00e5ff';
-    ctx.font = `600 22px ${FONT_JP}`;
+    ctx.font = `600 24px ${FONT_LATIN}`;
+    ctx.shadowColor = 'rgba(0, 240, 255, 0.4)';
+    ctx.shadowBlur = 8;
     const host = SHARE_APP_URL.replace(/^https?:\/\//, '');
-    ctx.fillText(host, W / 2, H - 170);
+    ctx.fillText(host, W / 2, H - 158);
+    ctx.shadowBlur = 0;
 
     return new Promise((resolve) => {
       canvas.toBlob((blob) => resolve(blob), 'image/png');
