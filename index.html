@@ -204,6 +204,9 @@
       padding: 0.15rem 0.4rem; font-size: 9px; line-height: 1.2;
       border-radius: 0.2rem; border: 1px solid #334155;
       background: #0a0e14; cursor: pointer; white-space: nowrap;
+      text-decoration: none;
+      display: inline-block;
+      box-sizing: border-box;
     }
     .attack-record-share { color: #e2e8f0; border-color: #3f3f46; }
     .attack-record-share:hover { border-color: #00e5ff; color: #00e5ff; background: rgba(0,229,255,.08); }
@@ -5449,7 +5452,7 @@
     // PWA service worker (inline blob)
     if ('serviceWorker' in navigator) {
       const swCode = `
-        const CACHE='setup-lab-v35';
+        const CACHE='setup-lab-v36';
         self.addEventListener('install', e => {
           e.waitUntil(caches.open(CACHE).then(c => c.addAll([
             './','./index.html','./scripts/red-path-browser.js',
