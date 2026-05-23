@@ -567,10 +567,10 @@
             <div class="story-image-modal__backdrop" data-story-modal-close tabindex="-1"></div>
             <div class="story-image-modal__panel">
               <h3 id="storyImageModalTitle" class="story-image-modal__title">ストーリー用画像</h3>
-              <p class="story-image-modal__hint">画像を確認してから「保存」をタップしてください（フォトに保存されます）。</p>
+              <p class="story-image-modal__hint">画像を確認してから「保存」をタップ。iPhone は共有シートの「写真に保存」、または画像の長押しでも保存できます。</p>
               <div class="story-image-modal__frame">
                 <p id="storyImageLoading" class="story-image-modal__loading">画像を作成中…</p>
-                <img id="storyImagePreview" alt="タイムアタック共有画像のプレビュー" hidden />
+                <img id="storyImagePreview" alt="タイムアタック共有画像のプレビュー" style="display:none" />
               </div>
               <div class="story-image-modal__actions">
                 <button type="button" id="storyImageSaveBtn" class="story-image-modal__btn story-image-modal__btn--primary">保存</button>
@@ -757,7 +757,7 @@
   <script src="scripts/red-path-browser.js"></script>
   <script src="scripts/road-gate.js"></script>
   <script src="scripts/attack-gates.js"></script>
-  <script src="scripts/time-attack.js?v=40"></script>
+  <script src="scripts/time-attack.js?v=41"></script>
   <script>
   (function () {
     'use strict';
@@ -5594,11 +5594,11 @@
     // PWA service worker (inline blob)
     if ('serviceWorker' in navigator) {
       const swCode = `
-        const CACHE='setup-lab-v40';
+        const CACHE='setup-lab-v41';
         const PRECACHE=[
           './','./index.html',
           './scripts/red-path-browser.js','./scripts/road-gate.js','./scripts/attack-gates.js',
-          './scripts/time-attack.js','./scripts/time-attack.js?v=40',
+          './scripts/time-attack.js','./scripts/time-attack.js?v=41',
           './assets/shigisan-ref.png','./assets/minoo-ref.png','./assets/hanna-ref.png',
           './assets/hanna-up-map.png','./assets/kanjo-ref.png'
         ];

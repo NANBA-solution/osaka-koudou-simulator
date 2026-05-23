@@ -662,7 +662,16 @@
     return `osaka-koudou-lap-${safe}.png`;
   }
 
-  const storyPreviewState = { blob: null, timeLabel: '', objectUrl: null };
+  const storyPreviewState = { blob: null, timeLabel: '', objectUrl: null, dataUrl: null };
+
+  function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new global.FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error || new Error('read failed'));
+      reader.readAsDataURL(blob);
+    });
+  }
 
   function closeStoryImagePreview() {
     const modal = global.document.getElementById('storyImageModal');
@@ -672,13 +681,17 @@
       URL.revokeObjectURL(storyPreviewState.objectUrl);
       storyPreviewState.objectUrl = null;
     }
+    storyPreviewState.dataUrl = null;
     storyPreviewState.blob = null;
     storyPreviewState.timeLabel = '';
     if (img) {
       img.removeAttribute('src');
-      img.hidden = true;
+      img.style.display = 'none';
     }
-    if (loading) loading.hidden = false;
+    if (loading) {
+      loading.style.display = 'block';
+      loading.textContent = '画像を作成中…';
+    }
     if (modal) modal.hidden = true;
     global.document.body.style.overflow = '';
   }
@@ -688,33 +701,69 @@
     const img = global.document.getElementById('storyImagePreview');
     const loading = global.document.getElementById('storyImageLoading');
     if (!modal) return;
-    if (img) img.hidden = true;
+    if (img) img.style.display = 'none';
     if (loading) {
-      loading.hidden = false;
+      loading.style.display = 'block';
       loading.textContent = '画像を作成中…';
     }
     modal.hidden = false;
     global.document.body.style.overflow = 'hidden';
   }
 
-  function openStoryImagePreview(blob, timeLabel) {
+  async function openStoryImagePreview(blob, timeLabel) {
     const modal = global.document.getElementById('storyImageModal');
     const img = global.document.getElementById('storyImagePreview');
     const loading = global.document.getElementById('storyImageLoading');
     if (!modal || !img || !blob) return;
     if (storyPreviewState.objectUrl) URL.revokeObjectURL(storyPreviewState.objectUrl);
+    storyPreviewState.objectUrl = null;
+    storyPreviewState.dataUrl = null;
     storyPreviewState.blob = blob;
     storyPreviewState.timeLabel = timeLabel || 'lap';
-    storyPreviewState.objectUrl = URL.createObjectURL(blob);
-    img.src = storyPreviewState.objectUrl;
-    img.hidden = false;
-    if (loading) loading.hidden = true;
-    modal.hidden = false;
-    global.document.body.style.overflow = 'hidden';
-    global.setTimeout(() => {
-      const saveBtn = global.document.getElementById('storyImageSaveBtn');
-      saveBtn?.focus();
-    }, 80);
+
+    const showImg = () => {
+      if (loading) loading.style.display = 'none';
+      img.style.display = 'block';
+      modal.hidden = false;
+      global.document.body.style.overflow = 'hidden';
+    };
+
+    img.onerror = () => {
+      global.alert('画像の表示に失敗しました。もう一度お試しください。');
+      closeStoryImagePreview();
+    };
+
+    try {
+      if (isMobileOrStandalone()) {
+        storyPreviewState.dataUrl = await blobToDataUrl(blob);
+        img.src = storyPreviewState.dataUrl;
+      } else {
+        storyPreviewState.objectUrl = URL.createObjectURL(blob);
+        img.src = storyPreviewState.objectUrl;
+      }
+      if (img.complete) showImg();
+      else img.onload = () => {
+        img.onload = null;
+        showImg();
+      };
+    } catch (_) {
+      storyPreviewState.objectUrl = URL.createObjectURL(blob);
+      img.src = storyPreviewState.objectUrl;
+      img.onload = () => {
+        img.onload = null;
+        showImg();
+      };
+    }
+  }
+
+  /** iOS/Android は a[download] がファイル画面に遷移するため共有シートを優先 */
+  async function saveBlobToPhotos(blob, filename) {
+    if (isMobileOrStandalone()) {
+      const shared = await shareBlobViaWebShare(blob, filename);
+      if (shared) return true;
+    }
+    downloadBlobDesktop(blob, filename);
+    return true;
   }
 
   function initStoryImagePreviewModal(addGpsLogFn) {
@@ -729,22 +778,31 @@
 
     const saveBtn = global.document.getElementById('storyImageSaveBtn');
     if (saveBtn) {
-      saveBtn.addEventListener('click', () => {
+      saveBtn.addEventListener('click', async () => {
         const { blob, timeLabel } = storyPreviewState;
         if (!blob) return;
+        saveBtn.disabled = true;
         try {
-          downloadBlob(blob, storyImageFilename(timeLabel));
+          await saveBlobToPhotos(blob, storyImageFilename(timeLabel));
           copyImageToClipboard(blob).catch(() => {});
           if (addGpsLogFn) {
-            addGpsLogFn('画像保存: フォトに保存済み → IGストーリーでギャラリーから追加');
+            addGpsLogFn('保存: 共有シートで「写真に保存」を選ぶか、画像を長押し');
+          }
+          if (isMobileOrStandalone()) {
+            global.alert(
+              '共有シートが開きます。\n「写真に保存」または「イメージを保存」を選んでください。\n\n' +
+                '出ない場合は、表示中の画像を長押し → 「写真に保存」でも保存できます。'
+            );
           }
           saveBtn.textContent = '保存しました';
           global.setTimeout(() => {
-            if (saveBtn) saveBtn.textContent = '保存';
+            saveBtn.textContent = '保存';
+            saveBtn.disabled = false;
           }, 2000);
         } catch (err) {
           console.error('story preview save failed', err);
           global.alert('画像の保存に失敗しました。');
+          saveBtn.disabled = false;
         }
       });
     }
@@ -754,7 +812,7 @@
     });
   }
 
-  function downloadBlob(blob, filename) {
+  function downloadBlobDesktop(blob, filename) {
     const url = URL.createObjectURL(blob);
     try {
       const a = global.document.createElement('a');
@@ -767,6 +825,11 @@
     } finally {
       global.setTimeout(() => URL.revokeObjectURL(url), 3000);
     }
+  }
+
+  function downloadBlob(blob, filename) {
+    if (isMobileOrStandalone()) return;
+    downloadBlobDesktop(blob, filename);
   }
 
   async function shareBlobViaWebShare(blob, filename) {
@@ -793,7 +856,9 @@
     const filename = storyImageFilename(timeLabel);
     const run = () => {
       try {
-        downloadBlob(blob, filename);
+        if (!isMobileOrStandalone()) {
+          downloadBlobDesktop(blob, filename);
+        }
         copyImageToClipboard(blob).catch(() => {});
         onDone?.(true);
       } catch (err) {
@@ -1126,8 +1191,9 @@
           return;
         }
         storyBlobCache.set(storyCacheKey(id), blob);
-        openStoryImagePreview(blob, meta.time);
-        addGpsLog('画像プレビューを表示 — 保存ボタンでフォトへ');
+        openStoryImagePreview(blob, meta.time).then(() => {
+          addGpsLog('画像プレビューを表示 — 保存ボタンでフォトへ');
+        });
       };
 
       showStoryImagePreviewLoading();
