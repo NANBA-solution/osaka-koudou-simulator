@@ -1,5 +1,5 @@
 /* PWA / ホーム画面用 — 更新時は CACHE 名を increment */
-const CACHE = 'setup-lab-v54';
+const CACHE = 'setup-lab-v58';
 const PRECACHE = [
   './',
   './index.html',
@@ -13,7 +13,9 @@ const PRECACHE = [
   './assets/minoo-ref.png',
   './assets/hanna-ref.png',
   './assets/hanna-up-map.png',
-  './assets/kanjo-ref.png'
+  './assets/kanjo-ref.png',
+  './assets/kanjo-banner-tire.png',
+  './assets/kanjo-banner-gear.png'
 ];
 
 self.addEventListener('install', (e) => {

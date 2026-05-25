@@ -464,16 +464,64 @@
       flex-shrink: 0;
       border: 1px solid #1f2937;
       background: #070707;
-      padding: 0.65rem 0.75rem;
+      padding: 0;
       font-family: ui-monospace, monospace;
       border-radius: 0.125rem;
       font-size: 0.75rem;
-      min-height: 80px;
+      min-height: 84px;
+      height: 84px;
+      overflow: hidden;
+    }
+    .equip-ad-banner--gear {
+      min-height: 98px;
+      height: 98px;
+    }
+    .equip-ad-banner__inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      min-height: inherit;
+    }
+    .equip-ad-banner__img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      display: block;
+      filter: brightness(1.12) contrast(1.05);
+    }
+    .equip-ad-banner--tire .equip-ad-banner__img {
+      object-position: 62% center;
+    }
+    .equip-ad-banner--gear .equip-ad-banner__img {
+      object-position: 50% 42%;
+    }
+    .equip-ad-banner__shade {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        90deg,
+        rgba(0, 0, 0, 0.88) 0%,
+        rgba(0, 0, 0, 0.68) 48%,
+        rgba(0, 0, 0, 0.28) 78%,
+        rgba(0, 0, 0, 0.1) 100%
+      );
+      pointer-events: none;
+    }
+    .equip-ad-banner__content {
+      position: relative;
+      z-index: 1;
+      box-sizing: border-box;
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      padding: 0.5rem 0.55rem 0.5rem 0.65rem;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
-      gap: 0.35rem;
-      overflow: visible;
+      justify-content: center;
+      gap: 0.2rem;
     }
     .equip-ad-banner__head {
       display: flex;
@@ -490,21 +538,24 @@
       font-weight: 700;
       letter-spacing: 0.06em;
       line-height: 1.35;
-      color: #6b7280;
+      color: #d1d5db;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
     }
     .equip-ad-banner__badge {
       flex-shrink: 0;
       font-size: 9px;
       font-weight: 700;
-      color: #ef4444;
+      color: #f87171;
       white-space: nowrap;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
     }
     .equip-ad-banner__body {
       margin: 0;
       min-width: 0;
       font-size: clamp(10px, 2.6vw, 11px);
       line-height: 1.4;
-      color: #9ca3af;
+      color: #e5e7eb;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
     }
     .equip-ad-banner__link {
       display: block;
@@ -512,9 +563,10 @@
       font-size: clamp(10px, 2.6vw, 11px);
       font-weight: 700;
       line-height: 1.35;
-      color: #f87171;
-      text-align: right;
+      color: #fca5a5;
+      text-align: left;
       letter-spacing: 0.04em;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
     }
     .equip-ad-banner__link:hover { text-decoration: underline; }
     #app {
@@ -550,14 +602,20 @@
       .app-header__sub { letter-spacing: 0.12em; }
     }
     @media (max-width: 480px) {
-      .equip-ad-banner {
-        padding: 0.55rem 0.65rem;
-        min-height: auto;
-        gap: 0.3rem;
+      .equip-ad-banner__content {
+        padding: 0.45rem 0.4rem 0.45rem 0.55rem;
+        gap: 0.15rem;
+      }
+      .equip-ad-banner__shade {
+        background: linear-gradient(
+          90deg,
+          rgba(0, 0, 0, 0.9) 0%,
+          rgba(0, 0, 0, 0.72) 62%,
+          rgba(0, 0, 0, 0.32) 100%
+        );
       }
       .equip-ad-banner__label { flex: 1 1 100%; letter-spacing: 0.04em; }
       .equip-ad-banner__badge { margin-left: auto; }
-      .equip-ad-banner__link { text-align: left; }
     }
 
     /* モバイル横画面：タイムだけ全画面（GPS計測は継続） */
@@ -642,19 +700,25 @@
     </header>
 
     <div class="app-shell equip-ad-banner equip-ad-banner--tire" role="complementary" aria-label="推奨タイヤバナー">
-      <div class="equip-ad-banner__head">
-        <span class="equip-ad-banner__label">📡 RECOMMENDED_TIRE // 推奨タイヤ</span>
-        <span class="equip-ad-banner__badge animate-pulse">● HOT</span>
+      <div class="equip-ad-banner__inner">
+        <img class="equip-ad-banner__img" src="assets/kanjo-banner-tire.png" alt="" decoding="async" aria-hidden="true" />
+        <div class="equip-ad-banner__shade" aria-hidden="true"></div>
+        <div class="equip-ad-banner__content">
+          <div class="equip-ad-banner__head">
+            <span class="equip-ad-banner__label">📡 RECOMMENDED_TIRE // 推奨タイヤ</span>
+            <span class="equip-ad-banner__badge animate-pulse">● HOT</span>
+          </div>
+          <p class="equip-ad-banner__body">
+            &gt; 峠・公道のドライ路面。超高グリップタイヤで横Gを確保せよ。
+          </p>
+          <a href="https://www.amazon.co.jp/s?k=%E3%82%BF%E3%82%A4%E3%83%A4+%EF%BC%91%EF%BC%99%EF%BC%95&amp;crid=U2Q9CR7J64IJ&amp;sprefix=%E3%82%BF%E3%82%A4%E3%83%A4+195%2Caps%2C368&amp;ref=nb_sb_noss_1&amp;tag=irohack0d-22"
+             target="_blank"
+             rel="noopener noreferrer sponsored"
+             class="equip-ad-banner__link">
+            👉 Amazonで最安値・適合サイズのタイヤをチェック
+          </a>
+        </div>
       </div>
-      <p class="equip-ad-banner__body">
-        &gt; 峠・公道のドライ路面。超高グリップタイヤで横Gを確保せよ。
-      </p>
-      <a href="https://www.amazon.co.jp/s?k=%E3%82%BF%E3%82%A4%E3%83%A4+%EF%BC%91%EF%BC%99%EF%BC%95&amp;crid=U2Q9CR7J64IJ&amp;sprefix=%E3%82%BF%E3%82%A4%E3%83%A4+195%2Caps%2C368&amp;ref=nb_sb_noss_1&amp;tag=irohack0d-22"
-         target="_blank"
-         rel="noopener noreferrer sponsored"
-         class="equip-ad-banner__link">
-        👉 Amazonで最安値・適合サイズのタイヤをチェック
-      </a>
     </div>
 
     <div class="app-grid app-shell grid lg:grid-cols-12 gap-3 md:gap-4">
@@ -846,19 +910,25 @@
         </details>
 
         <div class="app-shell equip-ad-banner equip-ad-banner--gear my-2 md:my-4" role="complementary" aria-label="推奨装備バナー">
-          <div class="equip-ad-banner__head">
-            <span class="equip-ad-banner__label">📡 RECOMMENDED_EQUIPMENT // 推奨装備</span>
-            <span class="equip-ad-banner__badge animate-pulse">● HOT</span>
+          <div class="equip-ad-banner__inner">
+            <img class="equip-ad-banner__img" src="assets/kanjo-banner-gear.png" alt="" decoding="async" aria-hidden="true" />
+            <div class="equip-ad-banner__shade" aria-hidden="true"></div>
+            <div class="equip-ad-banner__content">
+              <div class="equip-ad-banner__head">
+                <span class="equip-ad-banner__label">📡 RECOMMENDED_EQUIPMENT // 推奨装備</span>
+                <span class="equip-ad-banner__badge animate-pulse">● HOT</span>
+              </div>
+              <p class="equip-ad-banner__body">
+                &gt; 峠・公道ガチ勢の必需品。プロ仕様レーシンググローブで操作を遅らせるな。
+              </p>
+              <a href="https://www.amazon.co.jp/s?k=%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%B3%E3%82%B0%E3%82%B0%E3%83%AD%E3%83%BC%E3%83%96+%E8%BB%8A+%E3%82%B5%E3%83%BC%E3%82%AD%E3%83%83%E3%83%88&amp;crid=Q24FGQUYLPVE&amp;sprefix=%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%B3%E3%82%B0%E3%82%B0%E3%83%AD%E3%83%BC%E3%83%96+%E8%BB%8A%2Caps%2C1023&amp;ref=nb_sb_ss_ts-doa-p_4_11&amp;tag=irohack0d-22"
+                 target="_blank"
+                 rel="noopener noreferrer sponsored"
+                 class="equip-ad-banner__link">
+                👉 Amazonで最安値の適合装備をチェックする
+              </a>
+            </div>
           </div>
-          <p class="equip-ad-banner__body">
-            &gt; 峠・公道ガチ勢の必需品。プロ仕様レーシンググローブで操作を遅らせるな。
-          </p>
-          <a href="https://www.amazon.co.jp/s?k=%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%B3%E3%82%B0%E3%82%B0%E3%83%AD%E3%83%BC%E3%83%96+%E8%BB%8A+%E3%82%B5%E3%83%BC%E3%82%AD%E3%83%83%E3%83%88&amp;crid=Q24FGQUYLPVE&amp;sprefix=%E3%83%AC%E3%83%BC%E3%82%B7%E3%83%B3%E3%82%B0%E3%82%B0%E3%83%AD%E3%83%BC%E3%83%96+%E8%BB%8A%2Caps%2C1023&amp;ref=nb_sb_ss_ts-doa-p_4_11&amp;tag=irohack0d-22"
-             target="_blank"
-             rel="noopener noreferrer sponsored"
-             class="equip-ad-banner__link">
-            👉 Amazonで最安値の適合装備をチェックする
-          </a>
         </div>
 
         <!-- Canvas -->
