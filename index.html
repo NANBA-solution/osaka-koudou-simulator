@@ -109,13 +109,13 @@
     .course-gate-coords {
       position: absolute; top: 0.3rem; right: 0.3rem; z-index: 2;
       max-width: 3.5rem; padding: 0.15rem 0.2rem;
-      font-size: 6px; line-height: 1.15; color: #52525b;
-      background: rgba(255,255,255,.88); border: 1px solid #d4d4d8;
+      font-size: 6px; line-height: 1.15; color: #e4e4e7;
+      background: rgba(10, 10, 12, 0.92); border: 1px solid #3f3f46;
       border-radius: 0.15rem; pointer-events: none;
       font-family: 'JetBrains Mono', ui-monospace, monospace;
     }
     .course-gate-coords__title {
-      font-size: 6px; font-weight: 700; letter-spacing: 0.04em; color: #a1a1aa;
+      font-size: 6px; font-weight: 700; letter-spacing: 0.04em; color: #fafafa;
       margin: 0 0 0.1rem;
     }
     .course-gate-coords__row { margin: 0 0 0.12rem; }
@@ -126,7 +126,7 @@
     .course-gate-coords__label--s { color: #059669; }
     .course-gate-coords__label--f { color: #dc2626; }
     .course-gate-coords__val {
-      display: block; color: #27272a; tabular-nums; letter-spacing: -0.02em;
+      display: block; color: #f4f4f5; tabular-nums; letter-spacing: -0.02em;
     }
     .course-tab {
       flex: 1; min-width: 0; padding: 0.5rem 0.35rem; font-size: 11px; line-height: 1.3;
@@ -163,12 +163,15 @@
     }
     .course-map-sheet {
       position: relative;
-      background: #f4f4f5; border: 2px solid #d4d4d8; border-radius: 0.5rem;
-      box-shadow: inset 0 0 0 1px #fff, 0 4px 24px rgba(0,0,0,.35);
+      background: #000; border: 2px solid #3f3f46; border-radius: 0.5rem;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), 0 4px 24px rgba(0,0,0,.5);
     }
-    .course-map-meta { color: #a1a1aa; }
-    .course-map-meta strong { color: #fafafa; }
-    #courseCanvas { background: #fff !important; }
+    .course-map-panel #courseDesc,
+    .course-map-panel #courseMapStats,
+    .course-map-panel #mapLegendSim { color: #f4f4f5; }
+    .course-map-meta { color: #e4e4e7; }
+    .course-map-meta strong { color: #fff; }
+    #courseCanvas { background: #000 !important; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
     .attack-panel { background: linear-gradient(180deg, #0d1219 0%, #0a0e14 100%); }
     .attack-timer {
@@ -872,8 +875,8 @@
                 <button type="button" id="mapViewSim" class="view-toggle-btn" title="速度・ブレーキのシミュ表示">シミュ</button>
               </div>
             </div>
-            <p id="courseMapStats" class="text-[10px] text-red-300/90 tabular-nums">全長 — · S—F — · — pt</p>
-            <p id="mapLegendSim" class="hidden flex flex-wrap gap-3 text-[10px] text-slate-500">
+            <p id="courseMapStats" class="text-[10px] tabular-nums">全長 — · S—F — · — pt</p>
+            <p id="mapLegendSim" class="hidden flex flex-wrap gap-3 text-[10px]">
               <span><span class="inline-block w-3 h-0.5 bg-red-500 align-middle"></span> 直線</span>
               <span><span class="inline-block w-3 h-0.5 bg-amber-400 align-middle"></span> コーナ</span>
               <span><span class="inline-block w-3 h-0.5 bg-red-400 align-middle"></span> ブレーキ</span>
@@ -881,13 +884,13 @@
           </div>
           <select id="courseSelect" class="sr-only" aria-hidden="true" tabindex="-1"></select>
           <div class="course-map-sheet p-0.5 mx-1 mb-1">
-            <canvas id="courseCanvas" class="w-full rounded-sm bg-white block" height="520"></canvas>
+            <canvas id="courseCanvas" class="w-full rounded-sm bg-black block" height="520"></canvas>
             <aside id="courseGateCoords" class="course-gate-coords" aria-label="計測地点座標"></aside>
           </div>
-          <div class="grid grid-cols-3 gap-2 p-2 text-[10px] border-t border-zinc-600/60 mt-1 text-zinc-400">
-            <div><span class="text-slate-500">Wf (前輪荷重)</span><br/><span id="wfDisplay" class="text-motec-accent font-bold">—</span></div>
-            <div><span class="text-slate-500">ブレーキ温度</span><br/><span id="brakeTemp" class="font-bold">—</span></div>
-            <div><span class="text-slate-500">μ brake 実効</span><br/><span id="brakeMu" class="font-bold">—</span></div>
+          <div class="grid grid-cols-3 gap-2 p-2 text-[10px] border-t border-zinc-600/60 mt-1 text-zinc-200">
+            <div><span class="text-zinc-400">Wf (前輪荷重)</span><br/><span id="wfDisplay" class="text-motec-accent font-bold">—</span></div>
+            <div><span class="text-zinc-400">ブレーキ温度</span><br/><span id="brakeTemp" class="font-bold text-zinc-100">—</span></div>
+            <div><span class="text-zinc-400">μ brake 実効</span><br/><span id="brakeMu" class="font-bold text-zinc-100">—</span></div>
           </div>
         </section>
 
@@ -4223,7 +4226,7 @@
           ctx.fill();
           ctx.font = 'bold 12px "Hiragino Sans", "Yu Gothic", sans-serif';
           ctx.textAlign = 'left';
-          ctx.fillStyle = '#27272a';
+          ctx.fillStyle = '#f4f4f5';
           ctx.fillText(lm.label, lx + 9, ly + 4);
         });
 
@@ -5154,15 +5157,15 @@
 
     function drawCoursePanelBg(ctx, W, mapH, pad) {
       const x0 = pad, y0 = pad, w = W - pad * 2, h = mapH - pad * 2;
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = '#000000';
       ctx.fillRect(x0, y0, w, h);
 
-      ctx.strokeStyle = '#e4e4e7';
+      ctx.strokeStyle = 'rgba(255,255,255,.12)';
       ctx.lineWidth = 1;
       ctx.strokeRect(x0 + 0.5, y0 + 0.5, w - 1, h - 1);
 
       const gridStep = 32;
-      ctx.strokeStyle = 'rgba(0,0,0,.04)';
+      ctx.strokeStyle = 'rgba(255,255,255,.06)';
       for (let gx = x0 + gridStep; gx < x0 + w; gx += gridStep) {
         ctx.beginPath(); ctx.moveTo(gx, y0); ctx.lineTo(gx, y0 + h); ctx.stroke();
       }
@@ -5277,9 +5280,14 @@
 
     function drawCourse() {
       const canvas = els.canvas;
+      if (!canvas) return;
       const ctx = canvas.getContext('2d');
       const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
+      if (rect.width < 8) {
+        requestAnimationFrame(drawCourse);
+        return;
+      }
       canvas.width = rect.width * dpr;
       const H = 520;
       canvas.height = H * dpr;
@@ -5291,7 +5299,7 @@
       const results = state.results;
       const mapH = H - 56;
       const viewRect = computeCourseRect(course, W, mapH, pad);
-      ctx.fillStyle = '#e8e8ec';
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, W, H);
       drawCoursePanelBg(ctx, W, mapH, pad);
       const layout = buildTrackLayout(course, W, mapH, pad, viewRect);
@@ -5337,9 +5345,9 @@
       };
 
       if (courseOnly) {
-        strokePath('rgba(24,24,27,.9)', 15, 0);
-        strokePath('#ffffff', 12, 0);
-        strokePath('#dc2626', 7, 1);
+        strokePath('rgba(255,255,255,.35)', 18, 0);
+        strokePath('#f4f4f5', 14, 0);
+        strokePath('#ff4444', 9, 14);
       } else {
         for (let i = 0; i < pts.length - 1; i++) {
           const f0 = arc.cum[i] / arc.total;
@@ -5352,21 +5360,21 @@
           ctx.moveTo(x0, y0);
           ctx.lineTo(x1, y1);
           if (isBrake) {
-            ctx.strokeStyle = 'rgba(24,24,27,.7)';
+            ctx.strokeStyle = 'rgba(255,255,255,.28)';
             ctx.lineWidth = 9;
             ctx.stroke();
             ctx.strokeStyle = '#b91c1c';
             ctx.lineWidth = 6;
             ctx.stroke();
           } else if (seg.type === 'corner') {
-            ctx.strokeStyle = 'rgba(24,24,27,.65)';
+            ctx.strokeStyle = 'rgba(255,255,255,.25)';
             ctx.lineWidth = 9;
             ctx.stroke();
             ctx.strokeStyle = '#d97706';
             ctx.lineWidth = 5;
             ctx.stroke();
           } else {
-            ctx.strokeStyle = 'rgba(24,24,27,.65)';
+            ctx.strokeStyle = 'rgba(255,255,255,.25)';
             ctx.lineWidth = 9;
             ctx.stroke();
             ctx.strokeStyle = '#dc2626';
@@ -5378,7 +5386,7 @@
 
       if (!courseOnly) {
         ctx.setLineDash([6, 8]);
-        ctx.strokeStyle = 'rgba(0,0,0,.12)';
+        ctx.strokeStyle = 'rgba(255,255,255,.14)';
         ctx.lineWidth = 1;
         ctx.beginPath();
         for (let i = 0; i < pts.length - 1; i++) {
@@ -5404,10 +5412,10 @@
         if (courseOnly) {
           ctx.font = 'bold 11px "Hiragino Sans", "Yu Gothic", sans-serif';
           ctx.textAlign = 'left';
-          ctx.fillStyle = '#18181b';
+          ctx.fillStyle = '#fafafa';
           ctx.fillText(lm.label, x + 8, y + 4);
         } else {
-          ctx.fillStyle = '#3f3f46';
+          ctx.fillStyle = '#e4e4e7';
           ctx.font = '600 9px "Hiragino Sans", "Yu Gothic", sans-serif';
           ctx.textAlign = 'center';
           ctx.fillText(lm.label, x, y - 14);
@@ -5430,7 +5438,7 @@
         ctx.font = 'bold 10px JetBrains Mono';
         ctx.fillText(label, p[0] - 5, p[1] + 4);
         if (sub) {
-          ctx.fillStyle = '#52525b';
+          ctx.fillStyle = '#d4d4d8';
           ctx.font = '8px JetBrains Mono';
           ctx.fillText(sub, p[0] - 16, p[1] - 16);
         }
@@ -5457,7 +5465,7 @@
           ctx.lineWidth = 1.5;
           ctx.fill();
           ctx.stroke();
-          ctx.fillStyle = '#7f1d1d';
+          ctx.fillStyle = '#fca5a5';
           ctx.font = 'bold 8px JetBrains Mono';
           ctx.fillText(`${bz.vApproach?.toFixed(0) || '—'}→${bz.vEntry.toFixed(0)}`, p[0] + 10, p[1] - 4);
         });
@@ -5471,7 +5479,7 @@
       ctx.fillRect(pad, ey, W - pad * 2, elevH - 6);
       ctx.strokeStyle = '#1e2a38';
       ctx.strokeRect(pad, ey, W - pad * 2, elevH - 6);
-      ctx.fillStyle = '#64748b';
+      ctx.fillStyle = '#e4e4e7';
       ctx.font = '8px JetBrains Mono';
       ctx.fillText('勾配プロファイル (+上り)', pad + 4, ey + 10);
 
@@ -5487,10 +5495,10 @@
         });
       }
 
-      ctx.fillStyle = '#18181b';
+      ctx.fillStyle = '#fafafa';
       ctx.font = 'bold 11px JetBrains Mono';
       ctx.fillText('N', W - pad - 18, pad + 14);
-      ctx.fillStyle = '#52525b';
+      ctx.fillStyle = '#f4f4f5';
       ctx.font = '600 10px "Hiragino Sans", "Yu Gothic", sans-serif';
       ctx.fillText(course.name, pad + 2, mapH - 6);
     }
